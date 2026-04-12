@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const token = req.cookies.get("token");
+  const token = req.cookies.get("token")?.value;
+  const pathname = req.nextUrl.pathname;
 
-  if (!token && req.nextUrl.pathname.startsWith("/admin")) {
+  const publicPaths = ["/admin/login"];
+
+  if (publicPaths.includes(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/admin") && !token) {
     return NextResponse.redirect(new URL("/admin/login", req.url));
   }
 
