@@ -1,12 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "@/../lib/firebase";
 import { Formik } from "formik";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Save,
+  Trash2,
+  Pencil,
+  Briefcase,
+  X,
+} from "lucide-react";
 
 export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editData, setEditData] = useState<any>(null);
 
   // 🔹 Fetch Jobs
   const fetchJobs = async () => {
@@ -27,15 +45,58 @@ export default function Jobs() {
   // 🔹 Delete Job
   const handleDelete = async (id: string) => {
     await deleteDoc(doc(db, "jobs", id));
-    fetchJobs();
+    setJobs((prev) => prev.filter((j) => j.id !== id)); // instant UI update
+  };
+
+  // 🔹 Open Edit Modal
+  const openEdit = (job: any) => {
+    setEditData(job);
+    setEditOpen(true);
+  };
+
+  // 🔹 Update Job
+  const handleUpdate = async (values: any) => {
+    await updateDoc(doc(db, "jobs", values.id), {
+      jobId: Number(values.jobId),
+      jobName: values.jobName,
+    });
+
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === values.id ? { ...j, ...values } : j
+      )
+    );
+
+    setEditOpen(false);
+    setEditData(null);
   };
 
   return (
-    <div className="p-10 space-y-6">
+    <div className="min-h-screen bg-gray-100 p-6">
 
-      {/* ✅ FORM */}
-      <div>
-        <h2 className="text-xl font-bold mb-2">Add Job</h2>
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-6">
+        <Link
+          href="/admin/dashboard"
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
+        >
+          <ArrowLeft size={18} />
+          Back
+        </Link>
+
+        <h1 className="text-2xl font-bold text-center flex-1">
+          Job Management
+        </h1>
+
+        <div className="w-20" />
+      </div>
+
+      {/* FORM */}
+      <div className="bg-white rounded-xl shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+          <Briefcase size={18} />
+          Add New Job
+        </h2>
 
         <Formik
           initialValues={{ jobId: "", jobName: "" }}
@@ -50,22 +111,26 @@ export default function Jobs() {
           }}
         >
           {({ handleChange, handleSubmit }) => (
-            <form onSubmit={handleSubmit} className="space-y-2">
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-wrap gap-3 items-end"
+            >
               <input
                 name="jobId"
                 placeholder="Job ID"
                 onChange={handleChange}
-                className="border p-2"
+                className="border p-2 rounded w-40"
               />
 
               <input
                 name="jobName"
                 placeholder="Job Name"
                 onChange={handleChange}
-                className="border p-2"
+                className="border p-2 rounded w-60"
               />
 
-              <button className="bg-black text-white px-4 py-2">
+              <button className="bg-black text-white px-4 py-2 rounded flex items-center gap-2">
+                <Save size={16} />
                 Save Job
               </button>
             </form>
@@ -73,34 +138,110 @@ export default function Jobs() {
         </Formik>
       </div>
 
-      {/* ✅ TABLE VIEW */}
-      <div className="border rounded">
+      {/* TABLE */}
+      <div className="bg-white rounded-xl shadow overflow-hidden">
 
-        {/* Header */}
-        <div className="grid grid-cols-3 bg-gray-200 p-2 font-bold">
+        <div className="grid grid-cols-4 bg-gray-200 p-3 font-bold">
           <span>Job ID</span>
           <span>Job Name</span>
-          <span>Action</span>
+          <span>Actions</span>
         </div>
 
-        {/* Rows */}
-        {jobs.map((job) => (
+        {jobs.map((job, index) => (
           <div
             key={job.id}
-            className="grid grid-cols-3 border-t p-2 items-center"
+            className={`grid grid-cols-4 p-3 border-t items-center
+              ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+              hover:bg-blue-50`}
           >
             <span>{job.jobId}</span>
             <span>{job.jobName}</span>
 
-            <button
-              onClick={() => handleDelete(job.id)}
-              className="bg-red-500 text-white px-2 py-1 rounded"
-            >
-              Delete
-            </button>
+            <div className="flex gap-2">
+
+              {/* EDIT */}
+              <button
+                onClick={() => openEdit(job)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1"
+              >
+                <Pencil size={16} />
+                Edit
+              </button>
+
+              {/* DELETE */}
+              <button
+                onClick={() => handleDelete(job.id)}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+
+            </div>
           </div>
         ))}
       </div>
+
+      {/* ================= EDIT MODAL ================= */}
+      {editOpen && editData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+
+          <div className="bg-white w-[450px] rounded-xl shadow-lg p-6 relative">
+
+            {/* CLOSE */}
+            <button
+              onClick={() => setEditOpen(false)}
+              className="absolute right-3 top-3 text-gray-500 hover:text-red-600"
+            >
+              <X />
+            </button>
+
+            <h2 className="text-xl font-bold mb-4">Edit Job</h2>
+
+            <Formik
+              initialValues={editData}
+              enableReinitialize
+              onSubmit={handleUpdate}
+            >
+              {({ values, handleChange, handleSubmit }) => (
+                <form onSubmit={handleSubmit} className="space-y-3">
+
+                  <div>
+                    <label className="text-sm font-medium">Job ID</label>
+                    <input
+                      name="jobId"
+                      value={values.jobId}
+                      onChange={handleChange}
+                      className="border p-2 w-full rounded"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Job Name</label>
+                    <input
+                      name="jobName"
+                      value={values.jobName}
+                      onChange={handleChange}
+                      className="border p-2 w-full rounded"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="bg-green-600 text-white w-full py-2 rounded flex items-center justify-center gap-2"
+                  >
+                    <Save size={16} />
+                    Update Job
+                  </button>
+
+                </form>
+              )}
+            </Formik>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
