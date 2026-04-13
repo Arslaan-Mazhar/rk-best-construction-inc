@@ -26,7 +26,6 @@ export default function Jobs() {
   const [editOpen, setEditOpen] = useState(false);
   const [editData, setEditData] = useState<any>(null);
 
-  // 🔹 Fetch Jobs
   const fetchJobs = async () => {
     const snapshot = await getDocs(collection(db, "jobs"));
 
@@ -42,23 +41,21 @@ export default function Jobs() {
     fetchJobs();
   }, []);
 
-  // 🔹 Delete Job
   const handleDelete = async (id: string) => {
     await deleteDoc(doc(db, "jobs", id));
-    setJobs((prev) => prev.filter((j) => j.id !== id)); // instant UI update
+    setJobs((prev) => prev.filter((j) => j.id !== id));
   };
 
-  // 🔹 Open Edit Modal
   const openEdit = (job: any) => {
     setEditData(job);
     setEditOpen(true);
   };
 
-  // 🔹 Update Job
   const handleUpdate = async (values: any) => {
     await updateDoc(doc(db, "jobs", values.id), {
       jobId: Number(values.jobId),
       jobName: values.jobName,
+      totalContractAmount: Number(values.totalContractAmount),
     });
 
     setJobs((prev) =>
@@ -99,11 +96,12 @@ export default function Jobs() {
         </h2>
 
         <Formik
-          initialValues={{ jobId: "", jobName: "" }}
+          initialValues={{ jobId: "", jobName: "", totalContractAmount: "" }}
           onSubmit={async (values, { resetForm }) => {
             await addDoc(collection(db, "jobs"), {
               jobId: Number(values.jobId),
               jobName: values.jobName,
+              totalContractAmount: Number(values.totalContractAmount),
             });
 
             fetchJobs();
@@ -119,14 +117,21 @@ export default function Jobs() {
                 name="jobId"
                 placeholder="Job ID"
                 onChange={handleChange}
-                className="border p-2 rounded w-40"
+                className="border p-2 rounded w-32"
               />
 
               <input
                 name="jobName"
                 placeholder="Job Name"
                 onChange={handleChange}
-                className="border p-2 rounded w-60"
+                className="border p-2 rounded w-48"
+              />
+
+              <input
+                name="totalContractAmount"
+                placeholder="Total Contract"
+                onChange={handleChange}
+                className="border p-2 rounded w-40"
               />
 
               <button className="bg-black text-white px-4 py-2 rounded flex items-center gap-2">
@@ -141,25 +146,26 @@ export default function Jobs() {
       {/* TABLE */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
 
-        <div className="grid grid-cols-4 bg-gray-200 p-3 font-bold">
+        <div className="grid grid-cols-5 bg-gray-200 p-3 font-bold">
           <span>Job ID</span>
           <span>Job Name</span>
+          <span>Total Contract</span>
           <span>Actions</span>
         </div>
 
         {jobs.map((job, index) => (
           <div
             key={job.id}
-            className={`grid grid-cols-4 p-3 border-t items-center
+            className={`grid grid-cols-5 p-3 border-t items-center
               ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}
               hover:bg-blue-50`}
           >
             <span>{job.jobId}</span>
             <span>{job.jobName}</span>
+            <span>{job.totalContractAmount}</span>
 
             <div className="flex gap-2">
 
-              {/* EDIT */}
               <button
                 onClick={() => openEdit(job)}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1"
@@ -168,7 +174,6 @@ export default function Jobs() {
                 Edit
               </button>
 
-              {/* DELETE */}
               <button
                 onClick={() => handleDelete(job.id)}
                 className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1"
@@ -182,13 +187,12 @@ export default function Jobs() {
         ))}
       </div>
 
-      {/* ================= EDIT MODAL ================= */}
+      {/* EDIT MODAL */}
       {editOpen && editData && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
 
           <div className="bg-white w-[450px] rounded-xl shadow-lg p-6 relative">
 
-            {/* CLOSE */}
             <button
               onClick={() => setEditOpen(false)}
               className="absolute right-3 top-3 text-gray-500 hover:text-red-600"
@@ -207,7 +211,7 @@ export default function Jobs() {
                 <form onSubmit={handleSubmit} className="space-y-3">
 
                   <div>
-                    <label className="text-sm font-medium">Job ID</label>
+                    <label>Job ID</label>
                     <input
                       name="jobId"
                       value={values.jobId}
@@ -217,10 +221,20 @@ export default function Jobs() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Job Name</label>
+                    <label>Job Name</label>
                     <input
                       name="jobName"
                       value={values.jobName}
+                      onChange={handleChange}
+                      className="border p-2 w-full rounded"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Total Contract Amount</label>
+                    <input
+                      name="totalContractAmount"
+                      value={values.totalContractAmount}
                       onChange={handleChange}
                       className="border p-2 w-full rounded"
                     />

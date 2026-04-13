@@ -8,6 +8,7 @@ import Link from "next/link";
 import axios from "axios";
 
 import {
+  FileText,
   LayoutDashboard,
   Users,
   Briefcase,
@@ -72,6 +73,13 @@ export default function Dashboard() {
       icon: ClipboardList,
       href: "/admin/entries",
       color: "bg-purple-500",
+    },
+    {
+      title: "Material Billing",
+      desc: "Manage material invoices",
+      icon: FileText,
+      href: "/admin/materialBilling",
+      color: "bg-orange-500",
     },
   ];
 

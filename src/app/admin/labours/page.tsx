@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { db } from "@/../lib/firebase";
 import { useEffect, useState } from "react";
-import { Trash2, Edit3, Save, ArrowLeft, Check, X } from "lucide-react";
+import { Trash2, Edit3, Save, ArrowLeft, Check, X, HardHat } from "lucide-react";
 
 export default function Labours() {
   const [data, setData] = useState<any[]>([]);
@@ -68,23 +68,31 @@ export default function Labours() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-10">
+    <div className="min-h-screen bg-gray-100 p-6">
 
-       <div className="relative z-10 flex justify-end p-6">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-6">
         <Link
           href="/admin/dashboard"
-          className="flex items-center gap-2 border border-white px-4 py-2 rounded-full bg-white text-black transition"
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
         >
           <ArrowLeft size={18} />
-          Admin
+          Back to Dashboard
         </Link>
+
+        <h1 className="text-2xl font-bold text-center flex-1">
+          Labour Management
+        </h1>
+
+        <div className="w-20" />
       </div>
 
-      <h1 className="text-3xl font-bold mb-6">Labour Management</h1>
+      
 
       {/* FORM */}
-      <div className="bg-white p-6 rounded-xl shadow mb-8">
-        <h2 className="text-xl font-semibold mb-4">Add Labour</h2>
+      <div className="bg-white rounded-xl shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+          <HardHat size={18} /> Add New Labour </h2>
 
         <Formik
           initialValues={{ code: "", labourName: "", rate: "" }}

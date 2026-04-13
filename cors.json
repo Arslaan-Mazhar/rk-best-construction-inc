@@ -1,0 +1,14 @@
+[
+  {
+    "origin": ["*"],
+    "method": ["GET", "HEAD", "DELETE", "OPTIONS"],
+    "responseHeader": ["Content-Type", "x-goog-meta-uploaded-content-length"],
+    "maxAgeSeconds": 3600
+  },
+  {
+    "origin": ["*"],
+    "method": ["PUT", "POST", "PATCH"],
+    "responseHeader": ["Content-Type", "x-goog-meta-uploaded-content-length"],
+    "maxAgeSeconds": 3600
+  }
+]
