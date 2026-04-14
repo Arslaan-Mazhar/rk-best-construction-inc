@@ -77,12 +77,13 @@ export default function MaterialBillingPage() {
   // ---------------- CLOUDINARY UPLOAD ----------------
   const uploadImage = async (file: File) => {
     const formData = new FormData();
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     formData.append("file", file);
-    formData.append("upload_preset", "my_unsigned_preset");
-    formData.append("cloud_name", "dthsnl7hv");
+    formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_PRESET!);
+    // formData.append("cloud_name", cloudName);
 
     const res = await fetch(
-      "https://api.cloudinary.com/v1_1/dthsnl7hv/image/upload",
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
       {
         method: "POST",
         body: formData,
