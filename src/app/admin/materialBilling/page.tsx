@@ -9,9 +9,9 @@ import {
   doc,
   updateDoc,
 } from "firebase/firestore";
-
+import Link from "next/link";
 import { db } from "@/../lib/firebase";
-import { Edit, Trash2, X, Download } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, X, Download, ReceiptText } from "lucide-react";
 import Image from "next/image";
 
 type Job = {
@@ -153,11 +153,29 @@ export default function MaterialBillingPage() {
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
 
       {/* HEADER */}
-      <h1 className="text-2xl font-bold">Material Billing System</h1>
+      <div className="flex justify-between items-center mb-6">
+        <Link
+          href="/admin/dashboard"
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
+        >
+          <ArrowLeft size={18} />
+          Back
+        </Link>
+
+        <h1 className="text-2xl font-bold">Material Bill Management</h1>
+
+        <div className="w-20" />
+      </div>
+
 
       {/* ---------------- FORM ---------------- */}
       <div className="bg-white p-5 rounded-xl shadow grid md:grid-cols-6 gap-3 items-center">
-
+        <div className="md:col-span-6">
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+          <ReceiptText size={18} />
+          Add Material Bill
+        </h2>
+        </div>
         {/* JOB LIST (FIXED EMPTY ISSUE) */}
         <select
           className="border p-2 rounded"
@@ -189,7 +207,7 @@ export default function MaterialBillingPage() {
         {/* IMAGE */}
         <input
           type="file"
-          className="border p-2 rounded"
+          className=" border p-2 rounded"
           onChange={(e) => {
             const file = e.target.files?.[0];
             setImage(file || null);

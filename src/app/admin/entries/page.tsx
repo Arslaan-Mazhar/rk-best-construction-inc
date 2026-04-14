@@ -508,7 +508,7 @@ export default function Entries() {
               validationSchema={EditSchema}
               onSubmit={handleUpdate}
             >
-              {({ values, handleChange, handleSubmit, errors, touched }) => (
+              {({ values, handleChange, handleSubmit, errors, touched, setFieldValue }) => (
                 <Form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
                   {/* CODE */}
