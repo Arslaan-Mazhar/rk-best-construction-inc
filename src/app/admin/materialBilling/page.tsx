@@ -10,9 +10,9 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "@/../lib/firebase";
-import { Edit, Trash2 } from "lucide-react";
+import { db } from "@/../lib/firebase";
+import { Edit, Trash2, X, Download } from "lucide-react";
+import Image from "next/image";
 
 type Job = {
   id: string;
@@ -26,7 +26,6 @@ type Billing = {
   jobName: string;
   materialAmount: number;
   imageUrl?: string;
-  totalAmount: number;
 };
 
 export default function MaterialBillingPage() {
@@ -37,23 +36,31 @@ export default function MaterialBillingPage() {
   const [jobName, setJobName] = useState("");
   const [materialAmount, setMaterialAmount] = useState<number>(0);
   const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string>("");
 
   const [editId, setEditId] = useState<string | null>(null);
+  const [modalImage, setModalImage] = useState<string | null>(null);
 
   // ---------------- FETCH JOBS ----------------
   const fetchJobs = async () => {
     const snap = await getDocs(collection(db, "jobs"));
+
     setJobs(
-      snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any),
-      }))
+      snap.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          jobId: data.jobId || "",
+          jobName: data.jobName || "",
+        };
+      })
     );
   };
 
   // ---------------- FETCH BILLINGS ----------------
   const fetchBillings = async () => {
     const snap = await getDocs(collection(db, "materialBilling"));
+
     setBillings(
       snap.docs.map((d) => ({
         id: d.id,
@@ -67,16 +74,30 @@ export default function MaterialBillingPage() {
     fetchBillings();
   }, []);
 
-  // ---------------- IMAGE UPLOAD ----------------
+  // ---------------- CLOUDINARY UPLOAD ----------------
   const uploadImage = async (file: File) => {
-    const imageRef = ref(storage, `billing/${Date.now()}-${file.name}`);
-    await uploadBytes(imageRef, file);
-    return await getDownloadURL(imageRef);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "my_unsigned_preset");
+    formData.append("cloud_name", "dthsnl7hv");
+
+    const res = await fetch(
+      "https://api.cloudinary.com/v1_1/dthsnl7hv/image/upload",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await res.json();
+    return data.secure_url;
   };
 
   // ---------------- SUBMIT ----------------
   const handleSubmit = async () => {
-    let imageUrl = "";
+    if (!jobId || !materialAmount) return alert("Fill required fields");
+
+    let imageUrl = preview;
 
     if (image) {
       imageUrl = await uploadImage(image);
@@ -86,7 +107,6 @@ export default function MaterialBillingPage() {
       jobId,
       jobName,
       materialAmount,
-      totalAmount: materialAmount, // can extend formula later
       imageUrl,
     };
 
@@ -100,11 +120,13 @@ export default function MaterialBillingPage() {
     fetchBillings();
   };
 
+  // ---------------- RESET / CANCEL ----------------
   const resetForm = () => {
     setJobId("");
     setJobName("");
     setMaterialAmount(0);
     setImage(null);
+    setPreview("");
     setEditId(null);
   };
 
@@ -113,27 +135,35 @@ export default function MaterialBillingPage() {
     setJobId(b.jobId);
     setJobName(b.jobName);
     setMaterialAmount(b.materialAmount);
+    setPreview(b.imageUrl || "");
     setEditId(b.id || null);
   };
 
   // ---------------- DELETE ----------------
   const handleDelete = async (id: string) => {
+    if (!confirm("Delete this record?")) return;
     await deleteDoc(doc(db, "materialBilling", id));
     fetchBillings();
   };
 
+  const total = billings.reduce((sum, b) => sum + b.materialAmount, 0);
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+
+      {/* HEADER */}
+      <h1 className="text-2xl font-bold">Material Billing System</h1>
 
       {/* ---------------- FORM ---------------- */}
-      <div className="bg-white shadow p-4 rounded grid grid-cols-4 gap-4">
+      <div className="bg-white p-5 rounded-xl shadow grid md:grid-cols-6 gap-3 items-center">
 
-        {/* JOB DROPDOWN */}
+        {/* JOB LIST (FIXED EMPTY ISSUE) */}
         <select
-          className="border p-2"
+          className="border p-2 rounded"
           value={jobId}
           onChange={(e) => {
             const selected = jobs.find(j => j.jobId === e.target.value);
+
             setJobId(e.target.value);
             setJobName(selected?.jobName || "");
           }}
@@ -146,11 +176,11 @@ export default function MaterialBillingPage() {
           ))}
         </select>
 
-        {/* MATERIAL AMOUNT */}
+        {/* AMOUNT */}
         <input
           type="number"
-          placeholder="Material Amount (USD)"
-          className="border p-2"
+          placeholder="Amount"
+          className="border p-2 rounded"
           value={materialAmount}
           onChange={(e) => setMaterialAmount(Number(e.target.value))}
         />
@@ -158,35 +188,58 @@ export default function MaterialBillingPage() {
         {/* IMAGE */}
         <input
           type="file"
-          className="border p-2"
-          onChange={(e) => setImage(e.target.files?.[0] || null)}
+          className="border p-2 rounded"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            setImage(file || null);
+            if (file) setPreview(URL.createObjectURL(file));
+          }}
         />
 
-        {/* BUTTON */}
+        {/* PREVIEW SMALL */}
+        {preview && (
+          <img
+            src={preview}
+            onClick={() => setModalImage(preview)}
+            className="w-12 h-12 rounded cursor-pointer object-cover"
+          />
+        )}
+
+        {/* BUTTONS */}
         <button
           onClick={handleSubmit}
           className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          {editId ? "Update Billing" : "Add Billing"}
+          {editId ? "Update" : "Save"}
         </button>
+
+        {/* CANCEL BUTTON (NEW) */}
+        {editId && (
+          <button
+            onClick={resetForm}
+            className="bg-gray-500 text-white px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+        )}
       </div>
 
-      {/* ---------------- TOTAL DISPLAY ---------------- */}
-      <div className="text-xl font-bold">
-        Total Material Billing: $
-        {billings.reduce((sum, b) => sum + b.materialAmount, 0).toFixed(2)}
+      {/* TOTAL */}
+      <div className="text-lg font-semibold">
+        Total Billing: ${total.toFixed(2)}
       </div>
 
       {/* ---------------- TABLE ---------------- */}
-      <div className="overflow-auto bg-white shadow rounded">
-        <table className="w-full border">
+      <div className="bg-white shadow rounded-xl overflow-auto">
+        <table className="w-full border-collapse">
+
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2">Job ID</th>
-              <th className="p-2">Job Name</th>
-              <th className="p-2">Amount</th>
-              <th className="p-2">Image</th>
-              <th className="p-2">Actions</th>
+              <th className="p-3">Job ID</th>
+              {/* <th className="p-3">Job Name</th> */}
+              <th className="p-3">Amount</th>
+              <th className="p-3">Image</th>
+              <th className="p-3">Actions</th>
             </tr>
           </thead>
 
@@ -195,33 +248,66 @@ export default function MaterialBillingPage() {
               <tr key={b.id} className="border-t text-center">
 
                 <td className="p-2">{b.jobId}</td>
-                <td className="p-2">{b.jobName}</td>
+
+                {/* FIXED JOB NAME ISSUE */}
+                {/* <td className="p-2 font-medium">{b.jobName}</td> */}
+
                 <td className="p-2">${b.materialAmount}</td>
 
                 <td className="p-2">
                   {b.imageUrl && (
                     <img
                       src={b.imageUrl}
-                      className="w-12 h-12 object-cover mx-auto"
+                      onClick={() => setModalImage(b.imageUrl!)}
+                      className="w-10 h-10 mx-auto rounded cursor-pointer"
                     />
                   )}
                 </td>
 
                 <td className="p-2 flex justify-center gap-3">
+
                   <button onClick={() => handleEdit(b)}>
-                    <Edit className="text-blue-500" />
+                    <Edit className="text-blue-600" />
                   </button>
 
                   <button onClick={() => handleDelete(b.id!)}>
-                    <Trash2 className="text-red-500" />
+                    <Trash2 className="text-red-600" />
                   </button>
+
+                  {b.imageUrl && (
+                    <a href={b.imageUrl} download target="_blank">
+                      <Download className="text-green-600" />
+                    </a>
+                  )}
+
                 </td>
 
               </tr>
             ))}
           </tbody>
+
         </table>
       </div>
+
+      {/* ---------------- IMAGE MODAL (FULL VIEW) ---------------- */}
+      {modalImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+
+          <div className="relative bg-white p-4 rounded">
+
+            <button
+              onClick={() => setModalImage(null)}
+              className="absolute top-2 right-2"
+            >
+              <X />
+            </button>
+
+            <img src={modalImage} className="max-w-[500px] max-h-[500px]" />
+
+          </div>
+
+        </div>
+      )}
 
     </div>
   );

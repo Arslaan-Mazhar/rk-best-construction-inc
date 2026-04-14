@@ -40,9 +40,61 @@ export default function Entries() {
     date: "",
   });
 
+
   /* EDIT MODAL */
   const [editOpen, setEditOpen] = useState(false);
   const [editData, setEditData] = useState<any>(null);
+
+  const [labours, setLabours] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
+
+  const [selectedLabour, setSelectedLabour] = useState<any>(null);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+
+  const [showLabourPopup, setShowLabourPopup] = useState(false);
+  const [showJobPopup, setShowJobPopup] = useState(false);
+
+  // FETCH DATA
+  useEffect(() => {
+    fetchData();
+
+    const fetchDropdowns = async () => {
+      const labourSnap = await getDocs(collection(db, "labours"));
+      const jobSnap = await getDocs(collection(db, "jobs"));
+
+      setLabours(
+        labourSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }))
+      );
+
+      setJobs(
+        jobSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }))
+      );
+    };
+
+    fetchDropdowns();
+  }, []);
+
+  // SAVE ENTRY
+  const handleSave = async () => {
+    if (!selectedLabour || !selectedJob) return;
+
+    await addDoc(collection(db, "entries"), {
+      labourName: selectedLabour.name,
+      labourCode: selectedLabour.code,
+      jobName: selectedJob.title,
+      jobCode: selectedJob.code,
+      date: new Date().toISOString().split("T")[0],
+    });
+
+    alert("Saved!");
+  };
+
 
   /* ================= FETCH ================= */
   const fetchData = async () => {
@@ -95,6 +147,10 @@ export default function Entries() {
       paid,
       remaining: amount - paid,
       date: new Date(),
+      code: values.code,
+      job: values.job,
+      labourName: labours.find(l => l.code === values.code)?.labourName || "",
+      jobId: jobs.find(j => j.jobName === values.job)?.jobId || "",
     });
 
     fetchData();
@@ -198,28 +254,143 @@ export default function Entries() {
 
       {/* ADD FORM */}
       <div className="bg-white p-4 rounded shadow mb-4">
+
         <Formik
           initialValues={{
-            code: "",
-            job: "",
+            labourName: "",
+            labourCode: "",
+            jobName: "",
+            jobCode: "",
             hours: "",
             price: "",
             paid: "",
-            comment: "",
           }}
-          onSubmit={(values, { resetForm }) =>
-            handleAdd(values, resetForm)
-          }
-        >
-          {({ handleChange, handleSubmit }) => (
-            <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
-              <input name="code" onChange={handleChange} placeholder="Code" className="border p-2 w-28" />
-              <input name="job" onChange={handleChange} placeholder="Job" className="border p-2 w-28" />
-              <input name="hours" onChange={handleChange} placeholder="Hours" className="border p-2 w-24" />
-              <input name="price" onChange={handleChange} placeholder="Price" className="border p-2 w-24" />
-              <input name="paid" onChange={handleChange} placeholder="Paid" className="border p-2 w-24" />
+          onSubmit={async (values, { resetForm }) => {
+            const amount = Number(values.hours) * Number(values.price);
+            const paid = Number(values.paid || 0);
 
-              <button className="bg-blue-600 text-white px-4 py-2 flex items-center gap-2 rounded">
+            await addDoc(collection(db, "workEntries"), {
+              ...values,
+              amount,
+              paid,
+              remaining: amount - paid,
+              date: new Date(),
+              code: values.labourCode,
+              job: values.jobName,
+              labourName: labours.find(l => l.code === values.labourCode)?.labourName || "",
+              jobId: jobs.find(j => j.jobName === values.jobName)?.jobId || "",
+            });
+
+            fetchData();
+            resetForm();
+            setSelectedLabour(null);
+            setSelectedJob(null);
+          }}
+        >
+          {({ values, setFieldValue, handleChange, handleSubmit }) => (
+            <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 items-center">
+
+              {/* LABOUR DROPDOWN */}
+              <div className="relative">
+                <input
+                  placeholder="Select Labour"
+                  value={
+                    values.labourName
+                      ? `${values.labourName} (${values.labourCode})`
+                      : ""
+                  }
+                  readOnly
+                  onClick={() => setShowLabourPopup(true)}
+                  className="border p-2 w-44 cursor-pointer bg-white"
+                />
+
+                {showLabourPopup && (
+                  <div className="absolute bg-white border shadow w-44 max-h-40 overflow-y-auto z-50">
+                    {labours.map((l) => (
+                      <div
+                        key={l.id}
+                        className="p-2 hover:bg-gray-200 cursor-pointer"
+                        onClick={() => {
+                          setFieldValue("labourName", l.labourName);
+                          setFieldValue("labourCode", l.code);
+                          setFieldValue("price", l.rate || 0); // ✅ AUTO PRICE
+
+                          setShowLabourPopup(false);
+                        }}
+                      >
+                        {l.code} - {l.labourName} - {l.rate}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* JOB DROPDOWN */}
+              <div className="relative">
+                <input
+                  placeholder="Select Job"
+                  value={
+                    values.jobName
+                      ? `${values.jobName} (${values.jobCode})`
+                      : ""
+                  }
+                  readOnly
+                  onClick={() => setShowJobPopup(true)}
+                  className="border p-2 w-44 cursor-pointer bg-white"
+                />
+
+                {showJobPopup && (
+                  <div className="absolute bg-white border shadow w-44 max-h-40 overflow-y-auto z-50">
+                    {jobs.map((j) => (
+                      <div
+                        key={j.id}
+                        className="p-2 hover:bg-gray-200 cursor-pointer"
+                        onClick={() => {
+                          setFieldValue("jobName", j.jobName);
+                          setFieldValue("jobCode", j.jobId);
+
+                          setShowJobPopup(false);
+                        }}
+                      >
+                        {j.jobId} - {j.jobName}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* HOURS */}
+              <input
+                name="hours"
+                value={values.hours || ""}
+                onChange={handleChange}
+                placeholder="Hours"
+                type="number"
+                className="border p-2 w-24"
+              />
+
+              {/* PRICE */}
+              <input
+                name="price"
+                onChange={handleChange}
+                placeholder="Price"
+                value={values.price || ""}
+                type="number"
+                className="border p-2 w-24"
+              />
+
+              {/* PAID */}
+              <input
+                name="paid"
+                onChange={handleChange}
+                placeholder="Paid"
+                value={values.paid || ""}
+                type="number"
+                className="border p-2 w-24"
+              />
+
+              {/* SAVE BUTTON */}
+              <button className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2">
                 <Save size={16} /> Save
               </button>
             </form>
@@ -341,7 +512,7 @@ export default function Entries() {
                 <Form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
                   {/* CODE */}
-                  <div className="flex items-center gap-3">
+                  {/* <div className="flex items-center gap-3">
                     <label className="w-24 text-sm font-medium">Code</label>
                     <input
                       name="code"
@@ -355,7 +526,7 @@ export default function Entries() {
                     <p className="text-red-500 text-xs ml-24">{errors.code}</p>
                   )}
 
-                  {/* JOB */}
+                  
                   <div className="flex items-center gap-3">
                     <label className="w-24 text-sm font-medium">Job</label>
                     <input
@@ -364,22 +535,10 @@ export default function Entries() {
                       onChange={handleChange}
                       className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
                     />
-                  </div>
-
-                  {/* HOURS */}
-                  <div className="flex items-center gap-3">
-                    <label className="w-24 text-sm font-medium">Hours</label>
-                    <input
-                      name="hours"
-                      type="number"
-                      value={values.hours}
-                      onChange={handleChange}
-                      className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
-                    />
-                  </div>
+                  </div> */}
 
                   {/* PRICE */}
-                  <div className="flex items-center gap-3">
+                  {/* <div className="flex items-center gap-3">
                     <label className="w-24 text-sm font-medium">Price</label>
                     <input
                       name="price"
@@ -388,7 +547,73 @@ export default function Entries() {
                       onChange={handleChange}
                       className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
                     />
-                  </div>
+                  </div> */}
+
+
+
+                  {/* HOURS */}
+                  {/* <div className="flex items-center gap-3">
+                    <label className="w-24 text-sm font-medium">Hours</label>
+                    <input
+                      name="hours"
+                      type="number"
+                      value={values.hours}
+                      onChange={handleChange}
+                      className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                    />
+                  </div> */}
+
+                  <select
+                    name="code"
+                    onChange={(e) => {
+                      handleChange(e);
+
+                      const selected = labours.find(
+                        (l) => l.code === e.target.value
+                      );
+
+                      if (selected) {
+                        setFieldValue("price", selected.rate || 0);
+                      }
+                    }}
+                    className="border p-2 w-40"
+                  >
+                    <option value="">Select Labour</option>
+                    {labours.map((l) => (
+                      <option key={l.id} value={l.code}>
+                        {l.code} - {l.labourName}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    name="job"
+                    onChange={handleChange}
+                    className="border p-2 w-40"
+                  >
+                    <option value="">Select Job</option>
+                    {jobs.map((j) => (
+                      <option key={j.id} value={j.jobName}>
+                        {j.jobId} - {j.jobName}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    name="hours"
+                    onChange={handleChange}
+                    placeholder="Hours"
+                    className="border p-2 w-24"
+                  />
+
+                  <input
+                    name="price"
+                    onChange={handleChange}
+                    placeholder="Price"
+                    className="border p-2 w-24"
+                  />
+
+
 
                   {/* PAID */}
                   <div className="flex items-center gap-3">
@@ -428,3 +653,6 @@ export default function Entries() {
     </div>
   );
 }
+
+
+
