@@ -10,7 +10,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "@/../lib/firebase";
-
+import { useRef } from "react";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 
@@ -54,6 +54,23 @@ export default function Entries() {
   const [showLabourPopup, setShowLabourPopup] = useState(false);
   const [showJobPopup, setShowJobPopup] = useState(false);
 
+  const labourRef = useRef<HTMLDivElement>(null);
+  const jobRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: any) => {
+      if (labourRef.current && !labourRef.current.contains(e.target)) {
+        setShowLabourPopup(false);
+      }
+      if (jobRef.current && !jobRef.current.contains(e.target)) {
+        setShowJobPopup(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // FETCH DATA
   useEffect(() => {
     fetchData();
@@ -85,7 +102,7 @@ export default function Entries() {
     if (!selectedLabour || !selectedJob) return;
 
     await addDoc(collection(db, "entries"), {
-      labourName: selectedLabour.name,
+      name: selectedLabour.name,
       labourCode: selectedLabour.code,
       jobName: selectedJob.title,
       jobCode: selectedJob.code,
@@ -116,13 +133,13 @@ export default function Entries() {
 
     if (filters.code) {
       temp = temp.filter((i) =>
-        i.code?.toLowerCase().includes(filters.code.toLowerCase())
+        i.code?.toString().toLowerCase().includes(filters.code.toLowerCase())
       );
     }
 
     if (filters.job) {
       temp = temp.filter((i) =>
-        i.job?.toLowerCase().includes(filters.job.toLowerCase())
+        i.job?.toString().toLowerCase().includes(filters.job.toLowerCase())
       );
     }
 
@@ -149,7 +166,7 @@ export default function Entries() {
       date: new Date(),
       code: values.code,
       job: values.job,
-      labourName: labours.find(l => l.code === values.code)?.labourName || "",
+      name: labours.find(l => l.code === values.code)?.name || "",
       jobId: jobs.find(j => j.jobName === values.job)?.jobId || "",
     });
 
@@ -257,7 +274,7 @@ export default function Entries() {
 
         <Formik
           initialValues={{
-            labourName: "",
+            name: "",
             labourCode: "",
             jobName: "",
             jobCode: "",
@@ -277,7 +294,7 @@ export default function Entries() {
               date: new Date(),
               code: values.labourCode,
               job: values.jobName,
-              labourName: labours.find(l => l.code === values.labourCode)?.labourName || "",
+              name: labours.find(l => l.code === values.labourCode)?.name || "",
               jobId: jobs.find(j => j.jobName === values.jobName)?.jobId || "",
             });
 
@@ -291,34 +308,34 @@ export default function Entries() {
             <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 items-center">
 
               {/* LABOUR DROPDOWN */}
-              <div className="relative">
+              <div ref={labourRef} className="relative inline-block w-auto">
                 <input
                   placeholder="Select Labour"
                   value={
-                    values.labourName
-                      ? `${values.labourName} (${values.labourCode})`
+                    values.name
+                      ? `${values.labourCode} - ${values.name}`
                       : ""
                   }
                   readOnly
                   onClick={() => setShowLabourPopup(true)}
-                  className="border p-2 w-44 cursor-pointer bg-white"
+                  className="border p-2 min-w-62.5 w-auto bg-white cursor-pointer"
                 />
 
                 {showLabourPopup && (
-                  <div className="absolute bg-white border shadow w-44 max-h-40 overflow-y-auto z-50">
+                   <div className="absolute bg-white border shadow max-h-40 overflow-y-auto z-50">
                     {labours.map((l) => (
                       <div
                         key={l.id}
-                        className="p-2 hover:bg-gray-200 cursor-pointer"
+                        className={`p-2 cursor-pointer hover:bg-blue-100 ${values.labourCode === l.code ? "bg-blue-500 text-white" : ""
+                          }`}
                         onClick={() => {
-                          setFieldValue("labourName", l.labourName);
+                          setFieldValue("name", l.name);
                           setFieldValue("labourCode", l.code);
-                          setFieldValue("price", l.rate || 0); // ✅ AUTO PRICE
-
+                          setFieldValue("price", l.rate || 0);
                           setShowLabourPopup(false);
                         }}
                       >
-                        {l.code} - {l.labourName} - {l.rate}
+                        {l.code} - {l.name} - {l.rate}
                       </div>
                     ))}
                   </div>
@@ -326,29 +343,29 @@ export default function Entries() {
               </div>
 
               {/* JOB DROPDOWN */}
-              <div className="relative">
+              <div ref={jobRef} className="relative inline-block w-auto">
                 <input
                   placeholder="Select Job"
                   value={
                     values.jobName
-                      ? `${values.jobName} (${values.jobCode})`
+                      ? `${values.jobCode} - ${values.jobName}`
                       : ""
                   }
                   readOnly
                   onClick={() => setShowJobPopup(true)}
-                  className="border p-2 w-44 cursor-pointer bg-white"
+                  className="border p-2 min-w-62.5 w-auto bg-white cursor-pointer"
                 />
 
                 {showJobPopup && (
-                  <div className="absolute bg-white border shadow w-44 max-h-40 overflow-y-auto z-50">
+                   <div className="absolute bg-white border shadow max-h-40 overflow-y-auto z-50">
                     {jobs.map((j) => (
                       <div
                         key={j.id}
-                        className="p-2 hover:bg-gray-200 cursor-pointer"
+                        className={`p-2 cursor-pointer hover:bg-blue-100 ${values.jobCode === j.jobId ? "bg-blue-500 text-white" : ""
+                          }`}
                         onClick={() => {
                           setFieldValue("jobName", j.jobName);
                           setFieldValue("jobCode", j.jobId);
-
                           setShowJobPopup(false);
                         }}
                       >
@@ -441,10 +458,8 @@ export default function Entries() {
             <span>{item.date?.toDate?.().toLocaleDateString()}</span>
 
             {/* CODE */}
-            <span>{item.code}</span>
-
-            {/* JOB */}
-            <span>{item.job}</span>
+            <span>{item.code} - {item.name}</span>
+            <span>{item.jobId} - {item.job}</span>
 
             {/* HOURS */}
             <span>{item.hours}</span>
@@ -581,7 +596,7 @@ export default function Entries() {
                     <option value="">Select Labour</option>
                     {labours.map((l) => (
                       <option key={l.id} value={l.code}>
-                        {l.code} - {l.labourName}
+                        {l.code} - {l.name}
                       </option>
                     ))}
                   </select>

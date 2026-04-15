@@ -55,7 +55,7 @@ export default function Jobs() {
     await updateDoc(doc(db, "jobs", values.id), {
       jobId: Number(values.jobId),
       jobName: values.jobName,
-      totalContractAmount: Number(values.totalContractAmount),
+      totalContract: Number(values.totalContract),
     });
 
     setJobs((prev) =>
@@ -96,12 +96,12 @@ export default function Jobs() {
         </h2>
 
         <Formik
-          initialValues={{ jobId: "", jobName: "", totalContractAmount: "" }}
+          initialValues={{ jobId: "", jobName: "", totalContract: "" }}
           onSubmit={async (values, { resetForm }) => {
             await addDoc(collection(db, "jobs"), {
               jobId: Number(values.jobId),
               jobName: values.jobName,
-              totalContractAmount: Number(values.totalContractAmount),
+              totalContract: Number(values.totalContract),
             });
 
             fetchJobs();
@@ -128,7 +128,7 @@ export default function Jobs() {
               />
 
               <input
-                name="totalContractAmount"
+                name="totalContract"
                 placeholder="Total Contract"
                 onChange={handleChange}
                 className="border p-2 rounded w-40"
@@ -162,7 +162,7 @@ export default function Jobs() {
           >
             <span>{job.jobId}</span>
             <span>{job.jobName}</span>
-            <span>{job.totalContractAmount}</span>
+            <span>{"$"+job.totalContract}</span>
 
             <div className="flex gap-2">
 
@@ -191,7 +191,7 @@ export default function Jobs() {
       {editOpen && editData && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
 
-          <div className="bg-white w-[450px] rounded-xl shadow-lg p-6 relative">
+          <div className="bg-white w-112.5 rounded-xl shadow-lg p-6 relative">
 
             <button
               onClick={() => setEditOpen(false)}
@@ -231,10 +231,10 @@ export default function Jobs() {
                   </div>
 
                   <div>
-                    <label>Total Contract Amount</label>
+                    <label>Total Contract</label>
                     <input
-                      name="totalContractAmount"
-                      value={values.totalContractAmount}
+                      name="totalContract"
+                      value={values.totalContract}
                       onChange={handleChange}
                       className="border p-2 w-full rounded"
                     />

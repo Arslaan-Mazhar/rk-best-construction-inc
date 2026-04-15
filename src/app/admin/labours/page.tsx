@@ -20,7 +20,7 @@ export default function Labours() {
 
   const [editValues, setEditValues] = useState({
     code: "",
-    labourName: "",
+    name: "",
     rate: "",
   });
 
@@ -47,7 +47,7 @@ export default function Labours() {
     setEditingId(item.id);
     setEditValues({
       code: item.code,
-      labourName: item.labourName,
+      name: item.name,
       rate: item.rate,
     });
   };
@@ -95,7 +95,7 @@ export default function Labours() {
           <HardHat size={18} /> Add New Labour </h2>
 
         <Formik
-          initialValues={{ code: "", labourName: "", rate: "" }}
+          initialValues={{ code: "", name: "", rate: "" }}
           onSubmit={async (values, { resetForm }) => {
             await addDoc(collection(db, "labours"), values);
             fetchData();
@@ -116,7 +116,7 @@ export default function Labours() {
               />
 
               <input
-                name="labourName"
+                name="name"
                 placeholder="Name"
                 onChange={handleChange}
                 className="border p-3 rounded-lg w-full md:w-1/4"
@@ -177,11 +177,11 @@ export default function Labours() {
 
                       <td className="p-3">
                         <input
-                          value={editValues.labourName}
+                          value={editValues.name}
                           onChange={(e) =>
                             setEditValues({
                               ...editValues,
-                              labourName: e.target.value,
+                              name: e.target.value,
                             })
                           }
                           className="border p-2 w-full"
@@ -220,7 +220,7 @@ export default function Labours() {
                   ) : (
                     <>
                       <td className="p-3">{item.code}</td>
-                      <td className="p-3">{item.labourName}</td>
+                      <td className="p-3">{item.name}</td>
                       <td className="p-3">{item.rate}</td>
 
                       <td className="p-3 flex justify-center gap-4">
