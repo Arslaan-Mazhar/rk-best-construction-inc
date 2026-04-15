@@ -72,7 +72,7 @@ export default function Jobs() {
     <div className="min-h-screen bg-gray-100 p-6">
 
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-col sm:flex-row gap-4">
         <Link
           href="/admin/dashboard"
           className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
@@ -81,11 +81,11 @@ export default function Jobs() {
           Back
         </Link>
 
-        <h1 className="text-2xl font-bold text-center flex-1">
+        <h1 className="text-2xl font-bold text-center">
           Job Management
         </h1>
 
-        <div className="w-20" />
+        <div className="hidden sm:block w-20" />
       </div>
 
       {/* FORM */}
@@ -111,30 +111,30 @@ export default function Jobs() {
           {({ handleChange, handleSubmit }) => (
             <form
               onSubmit={handleSubmit}
-              className="flex flex-wrap gap-3 items-end"
+              className="flex flex-col md:flex-row flex-wrap gap-3 md:items-end"
             >
               <input
                 name="jobId"
                 placeholder="Job ID"
                 onChange={handleChange}
-                className="border p-2 rounded w-32"
+                className="border p-2 rounded w-full md:w-32 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
               />
 
               <input
                 name="jobName"
                 placeholder="Job Name"
                 onChange={handleChange}
-                className="border p-2 rounded w-48"
+                className="border p-2 rounded w-full md:w-48 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
               />
 
               <input
                 name="totalContract"
                 placeholder="Total Contract"
                 onChange={handleChange}
-                className="border p-2 rounded w-40"
+                className="border p-2 rounded w-full md:w-40 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
               />
 
-              <button className="bg-black text-white px-4 py-2 rounded flex items-center gap-2">
+              <button className="bg-black text-white px-4 py-2 rounded w-full md:w-auto flex items-center justify-center md:justify-start gap-2 hover:bg-gray-800 transition">
                 <Save size={16} />
                 Save Job
               </button>
@@ -143,64 +143,119 @@ export default function Jobs() {
         </Formik>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      {/* DESKTOP TABLE VIEW */}
+      <div className="hidden md:block bg-white rounded-xl shadow overflow-hidden">
 
-        <div className="grid grid-cols-5 bg-gray-200 p-3 font-bold">
+        <div className="grid grid-cols-4 bg-gray-200 p-3 font-bold text-sm">
           <span>Job ID</span>
           <span>Job Name</span>
           <span>Total Contract</span>
           <span>Actions</span>
         </div>
 
-        {jobs.map((job, index) => (
-          <div
-            key={job.id}
-            className={`grid grid-cols-5 p-3 border-t items-center
-              ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-              hover:bg-blue-50`}
-          >
-            <span>{job.jobId}</span>
-            <span>{job.jobName}</span>
-            <span>{"$"+job.totalContract}</span>
-
-            <div className="flex gap-2">
-
-              <button
-                onClick={() => openEdit(job)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1"
-              >
-                <Pencil size={16} />
-                Edit
-              </button>
-
-              <button
-                onClick={() => handleDelete(job.id)}
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1"
-              >
-                <Trash2 size={16} />
-                Delete
-              </button>
-
-            </div>
+        {jobs.length === 0 ? (
+          <div className="p-6 text-center text-gray-500">
+            <p>No jobs added yet</p>
           </div>
-        ))}
+        ) : (
+          jobs.map((job, index) => (
+            <div
+              key={job.id}
+              className={`grid grid-cols-4 p-3 border-t items-center text-sm
+                ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                hover:bg-blue-50`}
+            >
+              <span className="font-semibold">{job.jobId}</span>
+              <span>{job.jobName}</span>
+              <span className="text-blue-600 font-semibold">${job.totalContract}</span>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => openEdit(job)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1 text-sm font-medium transition"
+                >
+                  <Pencil size={16} />
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(job.id)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 text-sm font-medium transition"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* MOBILE CARD VIEW */}
+      <div className="md:hidden space-y-3">
+        <h2 className="text-xl font-semibold mb-4 text-gray-800">Jobs List</h2>
+        {jobs.length === 0 ? (
+          <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+            <p>No jobs added yet</p>
+          </div>
+        ) : (
+          jobs.map((job) => (
+            <div
+              key={job.id}
+              className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500"
+            >
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Job ID</p>
+                  <p className="text-sm font-bold text-gray-900">{job.jobId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Total Contract</p>
+                  <p className="text-sm font-bold text-blue-600">${job.totalContract}</p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 font-medium">Job Name</p>
+                <p className="text-sm font-bold text-gray-900">{job.jobName}</p>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button
+                  onClick={() => openEdit(job)}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-blue-700 transition"
+                >
+                  <Pencil size={16} /> Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(job.id)}
+                  className="flex-1 bg-red-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-red-700 transition"
+                >
+                  <Trash2 size={16} /> Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* EDIT MODAL */}
       {editOpen && editData && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
 
-          <div className="bg-white w-112.5 rounded-xl shadow-lg p-6 relative">
+          <div className="bg-white rounded-xl shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
 
-            <button
-              onClick={() => setEditOpen(false)}
-              className="absolute right-3 top-3 text-gray-500 hover:text-red-600"
-            >
-              <X />
-            </button>
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-800">Edit Job</h2>
 
-            <h2 className="text-xl font-bold mb-4">Edit Job</h2>
+              <button
+                onClick={() => setEditOpen(false)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
 
             <Formik
               initialValues={editData}
@@ -208,45 +263,54 @@ export default function Jobs() {
               onSubmit={handleUpdate}
             >
               {({ values, handleChange, handleSubmit }) => (
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
-                  <div>
-                    <label>Job ID</label>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Job ID</label>
                     <input
                       name="jobId"
                       value={values.jobId}
                       onChange={handleChange}
-                      className="border p-2 w-full rounded"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                     />
                   </div>
 
-                  <div>
-                    <label>Job Name</label>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Job Name</label>
                     <input
                       name="jobName"
                       value={values.jobName}
                       onChange={handleChange}
-                      className="border p-2 w-full rounded"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                     />
                   </div>
 
-                  <div>
-                    <label>Total Contract</label>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Total Contract</label>
                     <input
                       name="totalContract"
                       value={values.totalContract}
                       onChange={handleChange}
-                      className="border p-2 w-full rounded"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    className="bg-green-600 text-white w-full py-2 rounded flex items-center justify-center gap-2"
-                  >
-                    <Save size={16} />
-                    Update Job
-                  </button>
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(false)}
+                      className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      <Save size={18} />
+                      Update Job
+                    </button>
+                  </div>
 
                 </form>
               )}

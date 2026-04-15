@@ -153,7 +153,7 @@ export default function MaterialBillingPage() {
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
 
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-col sm:flex-row gap-4">
         <Link
           href="/admin/dashboard"
           className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
@@ -162,166 +162,244 @@ export default function MaterialBillingPage() {
           Back
         </Link>
 
-        <h1 className="text-2xl font-bold">Material Bill Management</h1>
+        <h1 className="text-2xl font-bold text-center">Material Bill Management</h1>
 
-        <div className="w-20" />
+        <div className="hidden sm:block w-20" />
       </div>
 
 
       {/* ---------------- FORM ---------------- */}
-      <div className="bg-white p-5 rounded-xl shadow grid md:grid-cols-6 gap-3 items-center">
-        <div className="md:col-span-6">
-          <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <ReceiptText size={18} />
-          Add Material Bill
-        </h2>
+      <div className="bg-white p-5 rounded-xl shadow">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <ReceiptText size={18} />
+            Add Material Bill
+          </h2>
         </div>
-        {/* JOB LIST (FIXED EMPTY ISSUE) */}
-        <select
-          className="border p-2 rounded"
-          value={jobId}
-          onChange={(e) => {
-            const selected = jobs.find(j => j.jobId === e.target.value);
+        <div className="flex flex-col md:flex-row gap-3 items-end md:items-end">
+          {/* JOB LIST (FIXED EMPTY ISSUE) */}
+          <select
+            className="border p-2 rounded w-full md:flex-1 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+            value={jobId}
+            onChange={(e) => {
+              const selected = jobs.find(j => j.jobId === e.target.value);
 
-            setJobId(e.target.value);
-            setJobName(selected?.jobName || "");
-          }}
-        >
-          <option value="">Select Job</option>
-          {jobs.map((j) => (
-            <option key={j.id} value={j.jobId}>
-              {j.jobId} - {j.jobName}
-            </option>
-          ))}
-        </select>
-
-        {/* AMOUNT */}
-        <input
-          type="number"
-          placeholder="Amount"
-          className="border p-2 rounded"
-          value={materialAmount}
-          onChange={(e) => setMaterialAmount(Number(e.target.value))}
-        />
-
-        {/* IMAGE */}
-        <input
-          type="file"
-          className=" border p-2 rounded"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            setImage(file || null);
-            if (file) setPreview(URL.createObjectURL(file));
-          }}
-        />
-
-        {/* PREVIEW SMALL */}
-        {preview && (
-          <img
-            src={preview}
-            onClick={() => setModalImage(preview)}
-            className="w-12 h-12 rounded cursor-pointer object-cover"
-          />
-        )}
-
-        {/* BUTTONS */}
-        <button
-          onClick={handleSubmit}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-        >
-          {editId ? "Update" : "Save"}
-        </button>
-
-        {/* CANCEL BUTTON (NEW) */}
-        {editId && (
-          <button
-            onClick={resetForm}
-            className="bg-gray-500 text-white px-4 py-2 rounded"
+              setJobId(e.target.value);
+              setJobName(selected?.jobName || "");
+            }}
           >
-            Cancel
-          </button>
-        )}
+            <option value="">Select Job</option>
+            {jobs.map((j) => (
+              <option key={j.id} value={j.jobId}>
+                {j.jobId} - {j.jobName}
+              </option>
+            ))}
+          </select>
+
+          {/* AMOUNT */}
+          <input
+            type="number"
+            placeholder="Amount"
+            className="border p-2 rounded w-full md:w-32 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+            value={materialAmount}
+            onChange={(e) => setMaterialAmount(Number(e.target.value))}
+          />
+
+          {/* IMAGE */}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="border p-2 rounded w-full md:w-auto focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              setImage(file || null);
+              if (file) setPreview(URL.createObjectURL(file));
+            }}
+          />
+
+          {/* PREVIEW SMALL */}
+          {preview && (
+            <img
+              src={preview}
+              onClick={() => setModalImage(preview)}
+              className="w-12 h-12 rounded cursor-pointer object-cover mx-auto md:mx-0"
+            />
+          )}
+
+          {/* BUTTONS */}
+          <div className="flex gap-2 w-full md:w-auto">
+            <button
+              onClick={handleSubmit}
+              className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition font-medium"
+            >
+              {editId ? "Update" : "Save"}
+            </button>
+
+            {/* CANCEL BUTTON (NEW) */}
+            {editId && (
+              <button
+                onClick={resetForm}
+                className="flex-1 md:flex-none bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition font-medium"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* TOTAL */}
-      <div className="text-lg font-semibold">
-        Total Billing: ${total.toFixed(2)}
+      <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded">
+        <p className="text-lg font-semibold text-gray-800">
+          Total Billing: <span className="text-blue-600">${total.toFixed(2)}</span>
+        </p>
       </div>
 
-      {/* ---------------- TABLE ---------------- */}
-      <div className="bg-white shadow rounded-xl overflow-auto">
+      {/* DESKTOP TABLE VIEW */}
+      <div className="hidden md:block bg-white shadow rounded-xl overflow-auto">
         <table className="w-full border-collapse">
 
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-3">Job ID</th>
-              {/* <th className="p-3">Job Name</th> */}
-              <th className="p-3">Amount</th>
-              <th className="p-3">Image</th>
-              <th className="p-3">Actions</th>
+              <th className="p-3 text-left font-semibold">Job ID</th>
+              <th className="p-3 text-left font-semibold">Amount</th>
+              <th className="p-3 text-left font-semibold">Image</th>
+              <th className="p-3 text-center font-semibold">Actions</th>
             </tr>
           </thead>
 
           <tbody>
-            {billings.map((b) => (
-              <tr key={b.id} className="border-t text-center">
-
-                <td className="p-2">{b.jobId}</td>
-
-                {/* FIXED JOB NAME ISSUE */}
-                {/* <td className="p-2 font-medium">{b.jobName}</td> */}
-
-                <td className="p-2">${b.materialAmount}</td>
-
-                <td className="p-2">
-                  {b.imageUrl && (
-                    <img
-                      src={b.imageUrl}
-                      onClick={() => setModalImage(b.imageUrl!)}
-                      className="w-10 h-10 mx-auto rounded cursor-pointer"
-                    />
-                  )}
+            {billings.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="p-6 text-center text-gray-500">
+                  No billing records yet
                 </td>
-
-                <td className="p-2 flex justify-center gap-3">
-
-                  <button onClick={() => handleEdit(b)}>
-                    <Edit className="text-blue-600" />
-                  </button>
-
-                  <button onClick={() => handleDelete(b.id!)}>
-                    <Trash2 className="text-red-600" />
-                  </button>
-
-                  {b.imageUrl && (
-                    <a href={b.imageUrl} download target="_blank">
-                      <Download className="text-green-600" />
-                    </a>
-                  )}
-
-                </td>
-
               </tr>
-            ))}
+            ) : (
+              billings.map((b) => (
+                <tr key={b.id} className="border-t hover:bg-gray-50">
+
+                  <td className="p-3 font-semibold">{b.jobId}</td>
+
+                  <td className="p-3 text-blue-600 font-semibold">${b.materialAmount}</td>
+
+                  <td className="p-3">
+                    {b.imageUrl && (
+                      <img
+                        src={b.imageUrl}
+                        onClick={() => setModalImage(b.imageUrl!)}
+                        className="w-10 h-10 rounded cursor-pointer hover:opacity-80 transition object-cover"
+                      />
+                    )}
+                  </td>
+
+                  <td className="p-3 flex justify-center gap-3">
+
+                    <button onClick={() => handleEdit(b)} className="text-blue-600 hover:scale-110 transition">
+                      <Edit size={18} />
+                    </button>
+
+                    <button onClick={() => handleDelete(b.id!)} className="text-red-600 hover:scale-110 transition">
+                      <Trash2 size={18} />
+                    </button>
+
+                    {b.imageUrl && (
+                      <a href={b.imageUrl} download target="_blank" rel="noopener noreferrer">
+                        <Download size={18} className="text-green-600 hover:scale-110 transition" />
+                      </a>
+                    )}
+
+                  </td>
+
+                </tr>
+              ))
+            )}
           </tbody>
 
         </table>
       </div>
 
-      {/* ---------------- IMAGE MODAL (FULL VIEW) ---------------- */}
-      {modalImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+      {/* MOBILE CARD VIEW */}
+      <div className="md:hidden space-y-3">
+        <h2 className="text-xl font-semibold text-gray-800">Billing Records</h2>
+        {billings.length === 0 ? (
+          <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+            <p>No billing records yet</p>
+          </div>
+        ) : (
+          billings.map((b) => (
+            <div
+              key={b.id}
+              className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500"
+            >
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Job ID</p>
+                  <p className="text-sm font-bold text-gray-900">{b.jobId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Amount</p>
+                  <p className="text-sm font-bold text-blue-600">${b.materialAmount}</p>
+                </div>
+              </div>
 
-          <div className="relative bg-white p-4 rounded">
+              {b.imageUrl && (
+                <div className="mb-4 flex justify-center">
+                  <img
+                    src={b.imageUrl}
+                    onClick={() => setModalImage(b.imageUrl!)}
+                    className="w-32 h-32 rounded cursor-pointer object-cover hover:opacity-80 transition"
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button
+                  onClick={() => handleEdit(b)}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-blue-700 transition"
+                >
+                  <Edit size={16} /> Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(b.id!)}
+                  className="flex-1 bg-red-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-red-700 transition"
+                >
+                  <Trash2 size={16} /> Delete
+                </button>
+
+                {b.imageUrl && (
+                  <a
+                    href={b.imageUrl}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 bg-green-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-green-700 transition"
+                  >
+                    <Download size={16} /> Download
+                  </a>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ------------ IMAGE MODAL (FULL VIEW) ------------ */}
+      {modalImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+
+          <div className="relative bg-white p-4 rounded-lg shadow-2xl max-w-md md:max-w-2xl w-full">
 
             <button
               onClick={() => setModalImage(null)}
-              className="absolute top-2 right-2"
+              className="absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 p-2 rounded-full transition-colors"
             >
-              <X />
+              <X size={24} />
             </button>
 
-            <img src={modalImage} className="max-w-[500px] max-h-[500px]" />
+            <img src={modalImage} className="w-full rounded object-cover" />
 
           </div>
 

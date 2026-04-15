@@ -37,7 +37,8 @@ export default function Entries() {
   const [filters, setFilters] = useState({
     code: "",
     job: "",
-    date: "",
+    startDate: "",
+    endDate: "",
   });
 
 
@@ -53,6 +54,10 @@ export default function Entries() {
 
   const [showLabourPopup, setShowLabourPopup] = useState(false);
   const [showJobPopup, setShowJobPopup] = useState(false);
+  const [showCodeTotals, setShowCodeTotals] = useState(false);
+
+  const [labourSearch, setLabourSearch] = useState("");
+  const [jobSearch, setJobSearch] = useState("");
 
   const labourRef = useRef<HTMLDivElement>(null);
   const jobRef = useRef<HTMLDivElement>(null);
@@ -70,6 +75,16 @@ export default function Entries() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const filteredLabours = labours.filter((l) =>
+    `${l.code} ${l.name} ${l.rate}`
+      .toLowerCase()
+      .includes(labourSearch.toLowerCase())
+  );
+
+  const filteredJobs = jobs.filter((j) =>
+    String(j.jobId).toLowerCase().includes(jobSearch.toLowerCase())
+  );
 
   // FETCH DATA
   useEffect(() => {
@@ -143,15 +158,68 @@ export default function Entries() {
       );
     }
 
-    if (filters.date) {
-      temp = temp.filter(
-        (i) =>
-          i.date?.toDate?.().toLocaleDateString() === filters.date
-      );
+    if (filters.startDate || filters.endDate) {
+      temp = temp.filter((i) => {
+        const itemDate = i.date?.toDate?.();
+        if (!itemDate) return false;
+
+        const startDate = filters.startDate ? new Date(filters.startDate) : null;
+        const endDate = filters.endDate ? new Date(filters.endDate) : null;
+
+        if (startDate && endDate) {
+          return itemDate >= startDate && itemDate <= endDate;
+        } else if (startDate) {
+          return itemDate >= startDate;
+        } else if (endDate) {
+          return itemDate <= endDate;
+        }
+        return true;
+      });
     }
 
     return temp;
   }, [data, filters]);
+
+  const groupedTotals = useMemo(() => {
+    const groups: Record<
+      string,
+      {
+        code: string;
+        name: string;
+        totalAmount: number;
+        totalPaid: number;
+        totalRemaining: number;
+        count: number;
+      }
+    > = {};
+
+    filteredData.forEach((item) => {
+      const code = item.code || "Unknown";
+      const name = item.name || "";
+      const amount = Number(item.amount || 0);
+      const paid = Number(item.paid || 0);
+      const remaining = Number(item.remaining ?? amount - paid);
+
+      if (!groups[code]) {
+        groups[code] = {
+          code,
+          name,
+          totalAmount: 0,
+          totalPaid: 0,
+          totalRemaining: 0,
+          count: 0,
+        };
+      }
+
+      groups[code].name = groups[code].name || name;
+      groups[code].totalAmount += amount;
+      groups[code].totalPaid += paid;
+      groups[code].totalRemaining += remaining;
+      groups[code].count += 1;
+    });
+
+    return Object.values(groups);
+  }, [filteredData]);
 
   /* ================= ADD ================= */
   const handleAdd = async (values: any, resetForm: any) => {
@@ -232,7 +300,7 @@ export default function Entries() {
     const docPdf = new jsPDF();
 
     autoTable(docPdf, {
-      head: [["Code", "Job", "Hours", "Price", "Total", "Paid", "Remaining"]],
+      head: [["Code", "Job", "Hours", "Price", "Total", "Paid", "Remaining", "Comment"]],
       body: filteredData.map((i) => [
         i.code,
         i.job,
@@ -241,6 +309,7 @@ export default function Entries() {
         i.amount,
         i.paid,
         i.remaining,
+        i.comment,
       ]),
     });
 
@@ -252,18 +321,18 @@ export default function Entries() {
     <div className="min-h-screen bg-gray-100 p-6">
 
       {/* HEADER */}
-      <div className="flex justify-between mb-6">
+      <div className="flex justify-between items-center mb-6 flex-col sm:flex-row gap-4">
         <Link href="/admin/dashboard" className="flex items-center gap-2">
           <ArrowLeft size={18} /> Back
         </Link>
 
         <h1 className="text-2xl font-bold">Work Entries</h1>
 
-        <div className="flex gap-2">
-          <button onClick={exportExcel} className="bg-green-600 text-white px-3 py-1 rounded">
+        <div className="hidden sm:flex gap-2">
+          <button onClick={exportExcel} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">
             Excel
           </button>
-          <button onClick={exportPDF} className="bg-red-600 text-white px-3 py-1 rounded">
+          <button onClick={exportPDF} className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm">
             PDF
           </button>
         </div>
@@ -271,7 +340,7 @@ export default function Entries() {
 
       {/* ADD FORM */}
       <div className="bg-white p-4 rounded shadow mb-4">
-
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Add New Entry</h3>
         <Formik
           initialValues={{
             name: "",
@@ -281,6 +350,7 @@ export default function Entries() {
             hours: "",
             price: "",
             paid: "",
+            comment: "",
           }}
           onSubmit={async (values, { resetForm }) => {
             const amount = Number(values.hours) * Number(values.price);
@@ -305,109 +375,152 @@ export default function Entries() {
           }}
         >
           {({ values, setFieldValue, handleChange, handleSubmit }) => (
-            <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 items-center">
+            <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row flex-wrap gap-2 lg:items-center">
 
               {/* LABOUR DROPDOWN */}
-              <div ref={labourRef} className="relative inline-block w-auto">
+              <div ref={labourRef} className="relative inline-block w-full lg:w-auto">
                 <input
-                  placeholder="Select Labour"
+                  placeholder="Search Labour Code / Name"
                   value={
-                    values.name
-                      ? `${values.labourCode} - ${values.name}`
-                      : ""
+                    showLabourPopup
+                      ? labourSearch
+                      : values.name
+                        ? `${values.labourCode} - ${values.name}`
+                        : ""
                   }
-                  readOnly
-                  onClick={() => setShowLabourPopup(true)}
-                  className="border p-2 min-w-62.5 w-auto bg-white cursor-pointer"
+                  onChange={(e) => {
+                    setLabourSearch(e.target.value);
+                    setShowLabourPopup(true);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowLabourPopup(true);
+                  }}
+                  className="border p-2 w-full lg:min-w-78 bg-white"
                 />
 
                 {showLabourPopup && (
-                   <div className="absolute bg-white border shadow max-h-40 overflow-y-auto z-50">
-                    {labours.map((l) => (
-                      <div
-                        key={l.id}
-                        className={`p-2 cursor-pointer hover:bg-blue-100 ${values.labourCode === l.code ? "bg-blue-500 text-white" : ""
-                          }`}
-                        onClick={() => {
-                          setFieldValue("name", l.name);
-                          setFieldValue("labourCode", l.code);
-                          setFieldValue("price", l.rate || 0);
-                          setShowLabourPopup(false);
-                        }}
-                      >
-                        {l.code} - {l.name} - {l.rate}
-                      </div>
-                    ))}
+                  <div
+                    className="absolute bg-white border shadow max-h-60 overflow-y-auto z-50 w-full rounded"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {filteredLabours.length > 0 ? (
+                      filteredLabours.map((l) => (
+                        <div
+                          key={l.id}
+                          className={`p-2 cursor-pointer hover:bg-blue-100 ${values.labourCode === l.code ? "bg-blue-500 text-white" : ""
+                            }`}
+                          onClick={() => {
+                            setFieldValue("name", l.name);
+                            setFieldValue("labourCode", l.code);
+                            setFieldValue("price", l.rate || 0);
+
+                            setLabourSearch(""); // reset search
+                            setShowLabourPopup(false);
+                          }}
+                        >
+                          {l.code} - {l.name} - {l.rate}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-gray-500">No results found</div>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* JOB DROPDOWN */}
-              <div ref={jobRef} className="relative inline-block w-auto">
+              <div ref={jobRef} className="relative inline-block w-full lg:w-auto">
                 <input
-                  placeholder="Select Job"
+                  placeholder="Search Job ID"
                   value={
-                    values.jobName
-                      ? `${values.jobCode} - ${values.jobName}`
-                      : ""
+                    showJobPopup
+                      ? jobSearch
+                      : values.jobName
+                        ? `${values.jobCode} - ${values.jobName}`
+                        : ""
                   }
-                  readOnly
-                  onClick={() => setShowJobPopup(true)}
-                  className="border p-2 min-w-62.5 w-auto bg-white cursor-pointer"
+                  onChange={(e) => {
+                    setJobSearch(e.target.value);
+                    setShowJobPopup(true);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowJobPopup(true);
+                  }}
+                  className="border p-2 w-full lg:min-w-62.5 bg-white"
                 />
 
                 {showJobPopup && (
-                   <div className="absolute bg-white border shadow max-h-40 overflow-y-auto z-50">
-                    {jobs.map((j) => (
-                      <div
-                        key={j.id}
-                        className={`p-2 cursor-pointer hover:bg-blue-100 ${values.jobCode === j.jobId ? "bg-blue-500 text-white" : ""
-                          }`}
-                        onClick={() => {
-                          setFieldValue("jobName", j.jobName);
-                          setFieldValue("jobCode", j.jobId);
-                          setShowJobPopup(false);
-                        }}
-                      >
-                        {j.jobId} - {j.jobName}
-                      </div>
-                    ))}
+                  <div
+                    className="absolute bg-white border shadow max-h-60 overflow-y-auto z-50 w-full rounded"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {filteredJobs.length > 0 ? (
+                      filteredJobs.map((j) => (
+                        <div
+                          key={j.id}
+                          className={`p-2 cursor-pointer hover:bg-blue-100 ${values.jobCode === j.jobId ? "bg-blue-500 text-white" : ""
+                            }`}
+                          onClick={() => {
+                            setFieldValue("jobName", j.jobName);
+                            setFieldValue("jobCode", j.jobId);
+
+                            setJobSearch(""); // reset search
+                            setShowJobPopup(false);
+                          }}
+                        >
+                          {j.jobId} - {j.jobName}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-gray-500">No results found</div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* HOURS */}
-              <input
-                name="hours"
-                value={values.hours || ""}
-                onChange={handleChange}
-                placeholder="Hours"
-                type="number"
-                className="border p-2 w-24"
-              />
+              {/* ROW 1: Hours and Price */}
+              <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
+                <input
+                  name="hours"
+                  value={values.hours || ""}
+                  onChange={handleChange}
+                  placeholder="Hours"
+                  type="number"
+                  className="border p-2 flex-1 lg:w-24"
+                />
+                <input
+                  name="price"
+                  onChange={handleChange}
+                  placeholder="Price"
+                  value={values.price || ""}
+                  type="number"
+                  className="border p-2 flex-1 lg:w-24"
+                />
+              </div>
 
-              {/* PRICE */}
-              <input
-                name="price"
-                onChange={handleChange}
-                placeholder="Price"
-                value={values.price || ""}
-                type="number"
-                className="border p-2 w-24"
-              />
-
-              {/* PAID */}
-              <input
-                name="paid"
-                onChange={handleChange}
-                placeholder="Paid"
-                value={values.paid || ""}
-                type="number"
-                className="border p-2 w-24"
-              />
+              {/* ROW 2: Paid and Comment */}
+              <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
+                <input
+                  name="paid"
+                  onChange={handleChange}
+                  placeholder="Paid"
+                  value={values.paid || ""}
+                  type="number"
+                  className="border p-2 flex-1 lg:w-24"
+                />
+                <input
+                  name="comment"
+                  onChange={handleChange}
+                  placeholder="Comment"
+                  value={values.comment || ""}
+                  className="border p-2 flex-1 lg:w-32"
+                />
+              </div>
 
               {/* SAVE BUTTON */}
-              <button className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2">
+              <button className="w-full lg:w-auto bg-blue-600 text-white px-4 py-2 rounded flex items-center justify-center gap-2 hover:bg-blue-700">
                 <Save size={16} /> Save
               </button>
             </form>
@@ -416,80 +529,108 @@ export default function Entries() {
       </div>
 
       {/* FILTERS */}
-      <div className="bg-white p-4 rounded shadow mb-4 flex gap-2 flex-wrap">
-        <input placeholder="Code"
+      <div className="bg-white p-4 rounded shadow mb-4 flex gap-2 flex-col lg:flex-row flex-wrap">
+        <input placeholder="Labour Code Search"
           onChange={(e) => setFilters({ ...filters, code: e.target.value })}
-          className="border p-2" />
+          className="border p-2 flex-1 lg:flex-none" />
 
-        <input placeholder="Job"
+        <input placeholder="Job Name Search"
           onChange={(e) => setFilters({ ...filters, job: e.target.value })}
-          className="border p-2" />
+          className="border p-2 flex-1 lg:flex-none" />
 
         <input type="date"
-          onChange={(e) =>
-            setFilters({
-              ...filters,
-              date: new Date(e.target.value).toLocaleDateString(),
-            })
-          }
-          className="border p-2" />
+          placeholder="Start Date"
+          onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+          className="border p-2 flex-1 lg:flex-none" />
+
+        <input type="date"
+          placeholder="End Date"
+          onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+          className="border p-2 flex-1 lg:flex-none" />
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded shadow">
-        <div className="grid grid-cols-9 bg-gray-200 p-3 font-semibold">
+      <div className="flex flex-col gap-3 mb-4">
+        <button
+          onClick={() => setShowCodeTotals((prev) => !prev)}
+          className="self-start bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+        >
+          {showCodeTotals ? "Hide code totals" : "Show totals by code"}
+        </button>
+
+        {showCodeTotals && (
+          <div className="bg-white rounded-xl shadow p-4">
+            <h3 className="text-lg font-semibold mb-3">Totals by Labour Code</h3>
+            {groupedTotals.length === 0 ? (
+              <p className="text-sm text-gray-500">No matching entries to summarize.</p>
+            ) : (
+              <div className="grid gap-3">
+                {groupedTotals.map((group) => (
+                  <div
+                    key={group.code}
+                    className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 border rounded-lg bg-gray-50"
+                  >
+                    <div>
+                      <p className="text-xs text-gray-500">Code</p>
+                      <p className="font-semibold">{group.code}</p>
+                      {group.name && <p className="text-xs text-gray-500">{group.name}</p>}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Amount</p>
+                      <p className="text-lg font-semibold text-blue-600">${group.totalAmount.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Paid</p>
+                      <p className="text-lg font-semibold text-green-600">${group.totalPaid.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Remaining</p>
+                      <p className="text-lg font-semibold text-red-600">${group.totalRemaining.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* DESKTOP TABLE VIEW */}
+      <div className="hidden md:block bg-white rounded shadow">
+        <div className="grid grid-cols-10 bg-gray-200 p-3 font-semibold text-sm">
           <span>Date</span>
-          <span>Code</span>
-          <span>Job</span>
+          <span>Code - Name</span>
+          <span>Job Id - Name</span>
           <span>Hours</span>
           <span>Price</span>
           <span>Total</span>
           <span>Paid</span>
-          <span>Remaining</span> {/* ✅ ADDED */}
+          <span>Remaining</span>
+          <span>Comment</span>
           <span>Actions</span>
         </div>
 
         {filteredData.map((item) => (
           <div
             key={item.id}
-            className="grid grid-cols-9 p-3 border-t items-center"
+            className="grid grid-cols-10 p-3 border-t items-center text-sm"
           >
-            {/* DATE */}
             <span>{item.date?.toDate?.().toLocaleDateString()}</span>
-
-            {/* CODE */}
             <span>{item.code} - {item.name}</span>
             <span>{item.jobId} - {item.job}</span>
-
-            {/* HOURS */}
             <span>{item.hours}</span>
-
-            {/* PRICE */}
             <span>{item.price}</span>
-
-            {/* TOTAL */}
-            <span className="font-semibold">
-              {item.amount || 0}
-            </span>
-
-            {/* PAID */}
-            <span className="text-green-600">
-              {item.paid || 0}
-            </span>
-
-            {/* REMAINING (NEW FIX) */}
+            <span className="font-semibold">{item.amount || 0}</span>
+            <span className="text-green-600">{item.paid || 0}</span>
             <span className="text-red-600 font-bold">
               {item.remaining ??
                 (Number(item.amount || 0) - Number(item.paid || 0))}
             </span>
-
-            {/* ACTIONS */}
+            <span className="truncate">{item.comment}</span>
             <div className="flex gap-2">
-              <button onClick={() => openEdit(item)} className="text-blue-600">
+              <button onClick={() => openEdit(item)} className="text-blue-600 hover:bg-blue-50 p-1 rounded">
                 <Pencil size={18} />
               </button>
-
-              <button onClick={() => handleDelete(item.id)} className="text-red-600">
+              <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:bg-red-50 p-1 rounded">
                 <Trash2 size={18} />
               </button>
             </div>
@@ -497,22 +638,100 @@ export default function Entries() {
         ))}
       </div>
 
+      {/* MOBILE CARD VIEW */}
+      <div className="md:hidden space-y-3">
+        {filteredData.length === 0 ? (
+          <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+            <p>No entries found</p>
+          </div>
+        ) : (
+          filteredData.map((item) => (
+            <div
+              key={item.id}
+              className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500"
+            >
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Date</p>
+                  <p className="text-sm font-semibold">{item.date?.toDate?.().toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Labour</p>
+                  <p className="text-sm font-semibold">{item.code}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Job ID</p>
+                  <p className="text-sm font-semibold">{item.jobId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Hours</p>
+                  <p className="text-sm font-semibold">{item.hours}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Total</p>
+                  <p className="text-sm font-bold text-blue-600">${item.amount || 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Paid</p>
+                  <p className="text-sm font-bold text-green-600">${item.paid || 0}</p>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 font-medium">Remaining</p>
+                <p className="text-sm font-bold text-red-600">
+                  ${item.remaining ??
+                    (Number(item.amount || 0) - Number(item.paid || 0))}
+                </p>
+              </div>
+
+              {item.comment && (
+                <div className="mb-3 bg-gray-50 p-2 rounded">
+                  <p className="text-xs text-gray-500 font-medium">Comment</p>
+                  <p className="text-sm text-gray-700">{item.comment}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button
+                  onClick={() => openEdit(item)}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-blue-700"
+                >
+                  <Pencil size={16} /> Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="flex-1 bg-red-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-red-700"
+                >
+                  <Trash2 size={16} /> Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* ================= EDIT MODAL ================= */}
       {editOpen && editData && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
 
-          {/* MODAL BOX (animated) */}
-          <div className="bg-white w-[520px] rounded-xl shadow-2xl p-6 animate-[fadeIn_0.2s_ease-in-out] scale-100">
+          {/* MODAL BOX */}
+          <div className="bg-white rounded-xl shadow-2xl max-w-96 w-full max-h-[90vh] overflow-y-auto">
 
             {/* HEADER */}
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Edit Entry</h2>
-
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-800">Edit Work Entry</h2>
               <button
                 onClick={() => setEditOpen(false)}
-                className="text-gray-500 hover:text-red-600"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-colors"
               >
-                <X />
+                <X size={24} />
               </button>
             </div>
 
@@ -524,139 +743,124 @@ export default function Entries() {
               onSubmit={handleUpdate}
             >
               {({ values, handleChange, handleSubmit, errors, touched, setFieldValue }) => (
-                <Form onSubmit={handleSubmit} className="flex flex-col gap-3">
+                <Form onSubmit={handleSubmit} className="p-6 space-y-6">
 
-                  {/* CODE */}
-                  {/* <div className="flex items-center gap-3">
-                    <label className="w-24 text-sm font-medium">Code</label>
-                    <input
+                  {/* LABOUR SELECTION */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Labour</label>
+                    <select
                       name="code"
                       value={values.code}
-                      onChange={handleChange}
-                      className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
-                      autoFocus
-                    />
+                      onChange={(e) => {
+                        handleChange(e);
+                        const selected = labours.find((l) => l.code === e.target.value);
+                        if (selected) {
+                          setFieldValue("price", selected.rate || 0);
+                        }
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    >
+                      <option value="">Select Labour</option>
+                      {labours.map((l) => (
+                        <option key={l.id} value={l.code}>
+                          {l.code} - {l.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  {touched.code && errors.code && typeof errors.code === "string" && (
-                    <p className="text-red-500 text-xs ml-24">{errors.code}</p>
-                  )}
 
-                  
-                  <div className="flex items-center gap-3">
-                    <label className="w-24 text-sm font-medium">Job</label>
-                    <input
+                  {/* JOB SELECTION */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Job</label>
+                    <select
                       name="job"
                       value={values.job}
                       onChange={handleChange}
-                      className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
-                    />
-                  </div> */}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    >
+                      <option value="">Select Job</option>
+                      {jobs.map((j) => (
+                        <option key={j.id} value={j.jobName}>
+                          {j.jobId} - {j.jobName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                  {/* PRICE */}
-                  {/* <div className="flex items-center gap-3">
-                    <label className="w-24 text-sm font-medium">Price</label>
-                    <input
-                      name="price"
-                      type="number"
-                      value={values.price}
-                      onChange={handleChange}
-                      className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
-                    />
-                  </div> */}
-
-
-
-                  {/* HOURS */}
-                  {/* <div className="flex items-center gap-3">
-                    <label className="w-24 text-sm font-medium">Hours</label>
-                    <input
-                      name="hours"
-                      type="number"
-                      value={values.hours}
-                      onChange={handleChange}
-                      className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
-                    />
-                  </div> */}
-
-                  <select
-                    name="code"
-                    onChange={(e) => {
-                      handleChange(e);
-
-                      const selected = labours.find(
-                        (l) => l.code === e.target.value
-                      );
-
-                      if (selected) {
-                        setFieldValue("price", selected.rate || 0);
-                      }
-                    }}
-                    className="border p-2 w-40"
-                  >
-                    <option value="">Select Labour</option>
-                    {labours.map((l) => (
-                      <option key={l.id} value={l.code}>
-                        {l.code} - {l.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    name="job"
-                    onChange={handleChange}
-                    className="border p-2 w-40"
-                  >
-                    <option value="">Select Job</option>
-                    {jobs.map((j) => (
-                      <option key={j.id} value={j.jobName}>
-                        {j.jobId} - {j.jobName}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    name="hours"
-                    onChange={handleChange}
-                    placeholder="Hours"
-                    className="border p-2 w-24"
-                  />
-
-                  <input
-                    name="price"
-                    onChange={handleChange}
-                    placeholder="Price"
-                    className="border p-2 w-24"
-                  />
-
-
+                  {/* HOURS AND PRICE ROW */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Hours</label>
+                      <input
+                        name="hours"
+                        type="number"
+                        value={values.hours}
+                        onChange={handleChange}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Price</label>
+                      <input
+                        name="price"
+                        type="number"
+                        value={values.price}
+                        onChange={handleChange}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
 
                   {/* PAID */}
-                  <div className="flex items-center gap-3">
-                    <label className="w-24 text-sm font-medium">Paid</label>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Paid Amount</label>
                     <input
                       name="paid"
                       type="number"
                       value={values.paid}
                       onChange={handleChange}
-                      className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400 outline-none"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                     />
                   </div>
 
-                  {/* AUTO TOTAL */}
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <label className="w-24 font-medium">Total</label>
-                    <span className="font-semibold text-black">
-                      {Number(values.hours || 0) * Number(values.price || 0)}
-                    </span>
+                  {/* COMMENT */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Comment</label>
+                    <input
+                      name="comment"
+                      value={values.comment}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    />
                   </div>
 
-                  {/* BUTTON */}
-                  <button
-                    type="submit"
-                    className="bg-green-600 text-white py-2 mt-3 rounded flex items-center justify-center gap-2 hover:bg-green-700 transition"
-                  >
-                    <Save size={16} /> Update Entry
-                  </button>
+                  {/* TOTAL DISPLAY */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">Total Amount:</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        ${Number(values.hours || 0) * Number(values.price || 0)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* BUTTONS */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(false)}
+                      className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      <Save size={18} />
+                      Update Entry
+                    </button>
+                  </div>
 
                 </Form>
               )}
