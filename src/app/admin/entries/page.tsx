@@ -23,9 +23,17 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 /* ================= VALIDATION ================= */
+const AddSchema = Yup.object().shape({
+  labourCode: Yup.string().required("Labour is required"),
+  jobName: Yup.string().required("Job is required"),
+  hours: Yup.number(),
+  price: Yup.number(),
+  paid: Yup.number(),
+});
+
 const EditSchema = Yup.object().shape({
-  code: Yup.string().required("Required"),
-  job: Yup.string().required("Required"),
+  code: Yup.string().required("Labour is required"),
+  job: Yup.string().required("Job is required"),
   hours: Yup.number().required("Required").min(0),
   price: Yup.number().required("Required").min(0),
   paid: Yup.number().min(0),
@@ -83,7 +91,7 @@ export default function Entries() {
   );
 
   const filteredJobs = jobs.filter((j) =>
-    String(j.jobId).toLowerCase().includes(jobSearch.toLowerCase())
+    `${j.jobId || ""} ${j.jobName || ""}`.toLowerCase().includes(jobSearch.toLowerCase())
   );
 
   // FETCH DATA
@@ -148,13 +156,13 @@ export default function Entries() {
 
     if (filters.code) {
       temp = temp.filter((i) =>
-        i.code?.toString().toLowerCase().includes(filters.code.toLowerCase())
+        `${i.code || ""} ${i.name || ""}`.toLowerCase().includes(filters.code.toLowerCase())
       );
     }
 
     if (filters.job) {
       temp = temp.filter((i) =>
-        i.job?.toString().toLowerCase().includes(filters.job.toLowerCase())
+        `${i.jobId || ""} ${i.job || ""}`.toLowerCase().includes(filters.job.toLowerCase())
       );
     }
 
@@ -352,6 +360,7 @@ export default function Entries() {
             paid: "",
             comment: "",
           }}
+          validationSchema={AddSchema}
           onSubmit={async (values, { resetForm }) => {
             const amount = Number(values.hours) * Number(values.price);
             const paid = Number(values.paid || 0);
@@ -374,13 +383,13 @@ export default function Entries() {
             setSelectedJob(null);
           }}
         >
-          {({ values, setFieldValue, handleChange, handleSubmit }) => (
+          {({ values, setFieldValue, handleChange, handleSubmit, errors, touched }) => (
             <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row flex-wrap gap-2 lg:items-center">
 
               {/* LABOUR DROPDOWN */}
               <div ref={labourRef} className="relative inline-block w-full lg:w-auto">
                 <input
-                  placeholder="Search Labour Code / Name"
+                  placeholder="Search Labour Code / Name *"
                   value={
                     showLabourPopup
                       ? labourSearch
@@ -396,8 +405,13 @@ export default function Entries() {
                     e.stopPropagation();
                     setShowLabourPopup(true);
                   }}
-                  className="border p-2 w-full lg:min-w-78 bg-white"
+                  className={`border p-2 rounded w-full lg:min-w-78 bg-white ${
+                    touched.labourCode && errors.labourCode ? "border-red-500" : ""
+                  }`}
                 />
+                {touched.labourCode && errors.labourCode && (
+                  <div className="text-red-500 text-xs mt-1">{String(errors.labourCode)}</div>
+                )}
 
                 {showLabourPopup && (
                   <div
@@ -432,7 +446,7 @@ export default function Entries() {
               {/* JOB DROPDOWN */}
               <div ref={jobRef} className="relative inline-block w-full lg:w-auto">
                 <input
-                  placeholder="Search Job ID"
+                  placeholder="Search Job ID / Name *"
                   value={
                     showJobPopup
                       ? jobSearch
@@ -448,8 +462,13 @@ export default function Entries() {
                     e.stopPropagation();
                     setShowJobPopup(true);
                   }}
-                  className="border p-2 w-full lg:min-w-62.5 bg-white"
+                  className={`border p-2 rounded w-full lg:min-w-62.5 bg-white ${
+                    touched.jobName && errors.jobName ? "border-red-500" : ""
+                  }`}
                 />
+                {touched.jobName && errors.jobName && (
+                  <div className="text-red-500 text-xs mt-1">{String(errors.jobName)}</div>
+                )}
 
                 {showJobPopup && (
                   <div
@@ -488,7 +507,7 @@ export default function Entries() {
                   onChange={handleChange}
                   placeholder="Hours"
                   type="number"
-                  className="border p-2 flex-1 lg:w-24"
+                  className="border p-2 rounded flex-1 lg:w-24"
                 />
                 <input
                   name="price"
@@ -496,7 +515,7 @@ export default function Entries() {
                   placeholder="Price"
                   value={values.price || ""}
                   type="number"
-                  className="border p-2 flex-1 lg:w-24"
+                  className="border p-2 rounded flex-1 lg:w-24"
                 />
               </div>
 
@@ -508,14 +527,14 @@ export default function Entries() {
                   placeholder="Paid"
                   value={values.paid || ""}
                   type="number"
-                  className="border p-2 flex-1 lg:w-24"
+                  className="border p-2 rounded flex-1 lg:w-24"
                 />
                 <input
                   name="comment"
                   onChange={handleChange}
                   placeholder="Comment"
                   value={values.comment || ""}
-                  className="border p-2 flex-1 lg:w-32"
+                  className="border p-2 rounded flex-1 lg:w-32"
                 />
               </div>
 
@@ -530,23 +549,23 @@ export default function Entries() {
 
       {/* FILTERS */}
       <div className="bg-white p-4 rounded shadow mb-4 flex gap-2 flex-col lg:flex-row flex-wrap">
-        <input placeholder="Labour Code Search"
+        <input placeholder="Labour Code / Name Search"
           onChange={(e) => setFilters({ ...filters, code: e.target.value })}
-          className="border p-2 flex-1 lg:flex-none" />
+          className="border p-2 rounded flex-1 lg:flex-none" />
 
-        <input placeholder="Job Name Search"
+        <input placeholder="Job ID / Name Search"
           onChange={(e) => setFilters({ ...filters, job: e.target.value })}
-          className="border p-2 flex-1 lg:flex-none" />
+          className="border p-2 rounded flex-1 lg:flex-none" />
 
         <input type="date"
           placeholder="Start Date"
           onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-          className="border p-2 flex-1 lg:flex-none" />
+          className="border p-2 rounded flex-1 lg:flex-none" />
 
         <input type="date"
           placeholder="End Date"
           onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-          className="border p-2 flex-1 lg:flex-none" />
+          className="border p-2 rounded flex-1 lg:flex-none" />
       </div>
 
       <div className="flex flex-col gap-3 mb-4">
@@ -602,7 +621,7 @@ export default function Entries() {
           <span>Job Id - Name</span>
           <span>Hours</span>
           <span>Price</span>
-          <span>Total</span>
+          <span>Total Amount</span>
           <span>Paid</span>
           <span>Remaining</span>
           <span>Comment</span>
@@ -747,7 +766,7 @@ export default function Entries() {
 
                   {/* LABOUR SELECTION */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Labour</label>
+                    <label className="block text-sm font-medium text-gray-700">Labour *</label>
                     <select
                       name="code"
                       value={values.code}
@@ -758,7 +777,11 @@ export default function Entries() {
                           setFieldValue("price", selected.rate || 0);
                         }
                       }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                      className={`w-full border ${
+                        touched.code && errors.code
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
                     >
                       <option value="">Select Labour</option>
                       {labours.map((l) => (
@@ -767,16 +790,23 @@ export default function Entries() {
                         </option>
                       ))}
                     </select>
+                    {touched.code && errors.code && (
+                      <div className="text-red-500 text-sm">{String(errors.code)}</div>
+                    )}
                   </div>
 
                   {/* JOB SELECTION */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Job</label>
+                    <label className="block text-sm font-medium text-gray-700">Job *</label>
                     <select
                       name="job"
                       value={values.job}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                      className={`w-full border ${
+                        touched.job && errors.job
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
                     >
                       <option value="">Select Job</option>
                       {jobs.map((j) => (
@@ -785,6 +815,9 @@ export default function Entries() {
                         </option>
                       ))}
                     </select>
+                    {touched.job && errors.job && (
+                      <div className="text-red-500 text-sm">{String(errors.job)}</div>
+                    )}
                   </div>
 
                   {/* HOURS AND PRICE ROW */}
