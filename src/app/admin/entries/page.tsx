@@ -43,8 +43,8 @@ const EditSchema = Yup.object().shape({
 export default function Entries() {
   const [data, setData] = useState<any[]>([]);
   const [filters, setFilters] = useState({
-    code: "",
-    job: "",
+    labourCode: "",
+    jobName: "",
     startDate: "",
     endDate: "",
   });
@@ -154,15 +154,15 @@ export default function Entries() {
   const filteredData = useMemo(() => {
     let temp = [...data];
 
-    if (filters.code) {
+    if (filters.labourCode) {
       temp = temp.filter((i) =>
-        `${i.code || ""} ${i.name || ""}`.toLowerCase().includes(filters.code.toLowerCase())
+        `${i.labourCode || ""} ${labours.find(l => l.code === i.labourCode)?.name || ""}`.toLowerCase().includes(filters.labourCode.toLowerCase())
       );
     }
 
-    if (filters.job) {
+    if (filters.jobName) {
       temp = temp.filter((i) =>
-        `${i.jobId || ""} ${i.job || ""}`.toLowerCase().includes(filters.job.toLowerCase())
+        `${i.jobId || ""} ${jobs.find(j => j.jobId === i.jobId)?.jobName || ""}`.toLowerCase().includes(filters.jobName.toLowerCase())
       );
     }
 
@@ -202,8 +202,8 @@ export default function Entries() {
     > = {};
 
     filteredData.forEach((item) => {
-      const code = item.code || "Unknown";
-      const name = item.name || "";
+      const code = item.labourCode || "Unknown";
+      const name = labours.find(l => l.code === item.labourCode)?.name || "";
       const amount = Number(item.amount || 0);
       const paid = Number(item.paid || 0);
       const remaining = Number(item.remaining ?? amount - paid);
@@ -235,15 +235,14 @@ export default function Entries() {
     const paid = Number(values.paid || 0);
 
     await addDoc(collection(db, "workEntries"), {
-      ...values,
-      amount,
+      labourCode: values.code,
+      jobId: values.jobCode,
+      hours: values.hours,
+      price: values.price,
       paid,
+      amount,
       remaining: amount - paid,
       date: new Date(),
-      code: values.code,
-      job: values.job,
-      name: labours.find(l => l.code === values.code)?.name || "",
-      jobId: jobs.find(j => j.jobName === values.job)?.jobId || "",
     });
 
     fetchData();
@@ -258,7 +257,15 @@ export default function Entries() {
 
   /* ================= OPEN EDIT ================= */
   const openEdit = (item: any) => {
-    setEditData({ ...item });
+    setEditData({
+      id: item.id,
+      labourCode: item.labourCode,
+      jobName: jobs.find(j => j.jobId === item.jobId)?.jobName || "",
+      jobId: item.jobId,
+      hours: item.hours,
+      price: item.price,
+      paid: item.paid,
+    });
     setEditOpen(true);
   };
 
@@ -268,9 +275,12 @@ export default function Entries() {
     const paid = Number(values.paid || 0);
 
     const updated = {
-      ...values,
-      amount,
+      labourCode: values.labourCode,
+      jobId: values.jobId,
+      hours: values.hours,
+      price: values.price,
       paid,
+      amount,
       remaining: amount - paid,
     };
 
@@ -310,8 +320,8 @@ export default function Entries() {
     autoTable(docPdf, {
       head: [["Code", "Job", "Hours", "Price", "Total", "Paid", "Remaining", "Comment"]],
       body: filteredData.map((i) => [
-        i.code,
-        i.job,
+        i.labourCode,
+        i.jobName,
         i.hours,
         i.price,
         i.amount,
@@ -365,16 +375,24 @@ export default function Entries() {
             const amount = Number(values.hours) * Number(values.price);
             const paid = Number(values.paid || 0);
 
+            const selectedLabour = labours.find(l => l.code === values.labourCode);
+            const selectedJob = jobs.find(j => j.jobId === values.jobCode);
+
             await addDoc(collection(db, "workEntries"), {
-              ...values,
-              amount,
+              labourCode: values.labourCode,
+              labourName: selectedLabour?.name || "",
+
+              jobId: values.jobCode,
+              jobName: selectedJob?.jobName || "",
+
+              hours: values.hours,
+              price: values.price,
               paid,
+              amount,
               remaining: amount - paid,
+
+              comment: values.comment || "",
               date: new Date(),
-              code: values.labourCode,
-              job: values.jobName,
-              name: labours.find(l => l.code === values.labourCode)?.name || "",
-              jobId: jobs.find(j => j.jobName === values.jobName)?.jobId || "",
             });
 
             fetchData();
@@ -405,9 +423,8 @@ export default function Entries() {
                     e.stopPropagation();
                     setShowLabourPopup(true);
                   }}
-                  className={`border p-2 rounded w-full lg:min-w-78 bg-white ${
-                    touched.labourCode && errors.labourCode ? "border-red-500" : ""
-                  }`}
+                  className={`border p-2 rounded w-full lg:min-w-78 bg-white ${touched.labourCode && errors.labourCode ? "border-red-500" : ""
+                    }`}
                 />
                 {touched.labourCode && errors.labourCode && (
                   <div className="text-red-500 text-xs mt-1">{String(errors.labourCode)}</div>
@@ -462,9 +479,8 @@ export default function Entries() {
                     e.stopPropagation();
                     setShowJobPopup(true);
                   }}
-                  className={`border p-2 rounded w-full lg:min-w-62.5 bg-white ${
-                    touched.jobName && errors.jobName ? "border-red-500" : ""
-                  }`}
+                  className={`border p-2 rounded w-full lg:min-w-62.5 bg-white ${touched.jobName && errors.jobName ? "border-red-500" : ""
+                    }`}
                 />
                 {touched.jobName && errors.jobName && (
                   <div className="text-red-500 text-xs mt-1">{String(errors.jobName)}</div>
@@ -550,11 +566,11 @@ export default function Entries() {
       {/* FILTERS */}
       <div className="bg-white p-4 rounded shadow mb-4 flex gap-2 flex-col lg:flex-row flex-wrap">
         <input placeholder="Labour Code / Name Search"
-          onChange={(e) => setFilters({ ...filters, code: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, labourCode: e.target.value })}
           className="border p-2 rounded flex-1 lg:flex-none" />
 
         <input placeholder="Job ID / Name Search"
-          onChange={(e) => setFilters({ ...filters, job: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, jobName: e.target.value })}
           className="border p-2 rounded flex-1 lg:flex-none" />
 
         <input type="date"
@@ -634,8 +650,8 @@ export default function Entries() {
             className="grid grid-cols-10 p-3 border-t items-center text-sm"
           >
             <span>{item.date?.toDate?.().toLocaleDateString()}</span>
-            <span>{item.code} - {item.name}</span>
-            <span>{item.jobId} - {item.job}</span>
+            <span>{item.labourCode} - {labours.find(l => l.code === item.labourCode)?.name || ""}</span>
+            <span>{item.jobId} - {jobs.find(j => j.jobId === item.jobId)?.jobName || ""}</span>
             <span>{item.hours}</span>
             <span>{item.price}</span>
             <span className="font-semibold">{item.amount || 0}</span>
@@ -676,14 +692,14 @@ export default function Entries() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Labour</p>
-                  <p className="text-sm font-semibold">{item.code} - {item.name}</p>
+                  <p className="text-sm font-semibold">{item.labourCode} - {labours.find(l => l.code === item.labourCode)?.name || ""}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Job</p>
-                  <p className="text-sm font-semibold">{item.jobId} - {item.job}</p>
+                  <p className="text-sm font-semibold">{item.jobId} - {jobs.find(j => j.jobId === item.jobId)?.jobName || ""}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Hours</p>
@@ -777,11 +793,10 @@ export default function Entries() {
                           setFieldValue("price", selected.rate || 0);
                         }
                       }}
-                      className={`w-full border ${
-                        touched.code && errors.code
+                      className={`w-full border ${touched.code && errors.code
                           ? "border-red-500"
                           : "border-gray-300"
-                      } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
+                        } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
                     >
                       <option value="">Select Labour</option>
                       {labours.map((l) => (
@@ -802,11 +817,10 @@ export default function Entries() {
                       name="job"
                       value={values.job}
                       onChange={handleChange}
-                      className={`w-full border ${
-                        touched.job && errors.job
+                      className={`w-full border ${touched.job && errors.job
                           ? "border-red-500"
                           : "border-gray-300"
-                      } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
+                        } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
                     >
                       <option value="">Select Job</option>
                       {jobs.map((j) => (
