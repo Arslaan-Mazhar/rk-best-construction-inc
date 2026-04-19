@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/../lib/firebase";
 import { Formik } from "formik";
+import * as Yup from "yup";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -25,6 +26,12 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [editData, setEditData] = useState<any>(null);
+
+  const JobSchema = Yup.object({
+    jobId: Yup.number().typeError("Job ID is required").required("Job ID is required"),
+    jobName: Yup.string().required("Job Name is required"),
+    totalContract: Yup.number().typeError("Total Contract is required").required("Total Contract is required"),
+  });
 
   const fetchJobs = async () => {
     const snapshot = await getDocs(collection(db, "jobs"));
@@ -97,6 +104,7 @@ export default function Jobs() {
 
         <Formik
           initialValues={{ jobId: "", jobName: "", totalContract: "" }}
+          validationSchema={JobSchema}
           onSubmit={async (values, { resetForm }) => {
             await addDoc(collection(db, "jobs"), {
               jobId: Number(values.jobId),
@@ -108,38 +116,62 @@ export default function Jobs() {
             resetForm();
           }}
         >
-          {({ handleChange, handleSubmit }) => (
+          {({ handleChange, handleSubmit, handleBlur, values, errors, touched }) => {
+            const formErrors = errors as Record<string, string | undefined>;
+            return (
             <form
               onSubmit={handleSubmit}
               className="flex flex-col md:flex-row flex-wrap gap-3 md:items-end"
             >
-              <input
-                name="jobId"
-                placeholder="Job ID"
-                onChange={handleChange}
-                className="border p-2 rounded w-full md:w-32 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-              />
+              <div className="w-full md:w-32">
+                <input
+                  name="jobId"
+                  placeholder="Job ID"
+                  value={values.jobId}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${touched.jobId && formErrors.jobId ? "border-red-500" : ""}`}
+                />
+                {touched.jobId && formErrors.jobId && (
+                  <p className="text-red-500 text-xs mt-1">{formErrors.jobId}</p>
+                )}
+              </div>
 
-              <input
-                name="jobName"
-                placeholder="Job Name"
-                onChange={handleChange}
-                className="border p-2 rounded w-full md:w-48 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-              />
+              <div className="w-full md:w-48">
+                <input
+                  name="jobName"
+                  placeholder="Job Name"
+                  value={values.jobName}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${touched.jobName && formErrors.jobName ? "border-red-500" : ""}`}
+                />
+                {touched.jobName && formErrors.jobName && (
+                  <p className="text-red-500 text-xs mt-1">{formErrors.jobName}</p>
+                )}
+              </div>
 
-              <input
-                name="totalContract"
-                placeholder="Total Contract"
-                onChange={handleChange}
-                className="border p-2 rounded w-full md:w-40 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-              />
+              <div className="w-full md:w-40">
+                <input
+                  name="totalContract"
+                  placeholder="Total Contract"
+                  value={values.totalContract}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${touched.totalContract && formErrors.totalContract ? "border-red-500" : ""}`}
+                />
+                {touched.totalContract && formErrors.totalContract && (
+                  <p className="text-red-500 text-xs mt-1">{formErrors.totalContract}</p>
+                )}
+              </div>
 
               <button className="bg-black text-white px-4 py-2 rounded w-full md:w-auto flex items-center justify-center md:justify-start gap-2 hover:bg-gray-800 transition">
                 <Save size={16} />
                 Save Job
               </button>
             </form>
-          )}
+            );
+          }}
         </Formik>
       </div>
 
@@ -260,9 +292,12 @@ export default function Jobs() {
             <Formik
               initialValues={editData}
               enableReinitialize
+              validationSchema={JobSchema}
               onSubmit={handleUpdate}
             >
-              {({ values, handleChange, handleSubmit }) => (
+              {({ values, handleChange, handleBlur, handleSubmit, errors, touched }) => {
+                const formErrors = errors as Record<string, string | undefined>;
+                return (
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
                   <div className="space-y-2">
@@ -271,8 +306,12 @@ export default function Jobs() {
                       name="jobId"
                       value={values.jobId}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                      onBlur={handleBlur}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${touched.jobId && formErrors.jobId ? "border-red-500" : "border-gray-300"}`}
                     />
+                    {touched.jobId && formErrors.jobId && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.jobId}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -281,8 +320,12 @@ export default function Jobs() {
                       name="jobName"
                       value={values.jobName}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                      onBlur={handleBlur}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${touched.jobName && formErrors.jobName ? "border-red-500" : "border-gray-300"}`}
                     />
+                    {touched.jobName && formErrors.jobName && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.jobName}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -291,8 +334,12 @@ export default function Jobs() {
                       name="totalContract"
                       value={values.totalContract}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                      onBlur={handleBlur}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${touched.totalContract && formErrors.totalContract ? "border-red-500" : "border-gray-300"}`}
                     />
+                    {touched.totalContract && formErrors.totalContract && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.totalContract}</p>
+                    )}
                   </div>
 
                   <div className="flex gap-3 pt-4">
@@ -313,7 +360,8 @@ export default function Jobs() {
                   </div>
 
                 </form>
-              )}
+                );
+              }}
             </Formik>
 
           </div>

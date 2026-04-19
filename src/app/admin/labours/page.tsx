@@ -1,5 +1,6 @@
 "use client";
 import { Formik } from "formik";
+import * as Yup from "yup";
 import {
   collection,
   addDoc,
@@ -17,11 +18,18 @@ export default function Labours() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   const [editValues, setEditValues] = useState({
     code: "",
     name: "",
     rate: "",
+  });
+
+  const LabourSchema = Yup.object({
+    code: Yup.string().required("Code is required"),
+    name: Yup.string().required("Name is required"),
+    rate: Yup.number().typeError("Rate is required").required("Rate is required"),
   });
 
   const fetchData = async () => {
@@ -50,21 +58,33 @@ export default function Labours() {
       name: item.name,
       rate: item.rate,
     });
+    setEditErrors({});
   };
 
   // UPDATE
   const handleUpdate = async () => {
     if (!editingId) return;
 
-    await updateDoc(doc(db, "labours", editingId), editValues);
-
-    setEditingId(null);
-    fetchData();
+    try {
+      await LabourSchema.validate(editValues, { abortEarly: false });
+      setEditErrors({});
+      
+      await updateDoc(doc(db, "labours", editingId), editValues);
+      setEditingId(null);
+      fetchData();
+    } catch (err: any) {
+      const newErrors: Record<string, string> = {};
+      err.inner?.forEach((error: any) => {
+        if (error.path) newErrors[error.path] = error.message;
+      });
+      setEditErrors(newErrors);
+    }
   };
 
   // CANCEL
   const handleCancel = () => {
     setEditingId(null);
+    setEditErrors({});
   };
 
   return (
@@ -96,38 +116,62 @@ export default function Labours() {
 
         <Formik
           initialValues={{ code: "", name: "", rate: "" }}
+          validationSchema={LabourSchema}
           onSubmit={async (values, { resetForm }) => {
             await addDoc(collection(db, "labours"), values);
             fetchData();
             resetForm();
           }}
         >
-          {({ handleChange, handleSubmit }) => (
+          {({ handleChange, handleSubmit, handleBlur, values, errors, touched }) => {
+            const formErrors = errors as Record<string, string | undefined>;
+            return (
             <form
               onSubmit={handleSubmit}
               className="flex flex-col md:flex-row items-center gap-3"
             >
               {/* INPUTS INLINE */}
-              <input
-                name="code"
-                placeholder="Code"
-                onChange={handleChange}
-                className="border p-3 rounded-lg w-full md:w-1/4 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-              />
+              <div className="w-full md:w-1/4">
+                <input
+                  name="code"
+                  placeholder="Code"
+                  value={values.code}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`border p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${touched.code && formErrors.code ? "border-red-500" : ""}`}
+                />
+                {touched.code && formErrors.code && (
+                  <p className="text-red-500 text-xs mt-1">{formErrors.code}</p>
+                )}
+              </div>
 
-              <input
-                name="name"
-                placeholder="Name"
-                onChange={handleChange}
-                className="border p-3 rounded-lg w-full md:w-1/4 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-              />
+              <div className="w-full md:w-1/4">
+                <input
+                  name="name"
+                  placeholder="Name"
+                  value={values.name}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`border p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${touched.name && formErrors.name ? "border-red-500" : ""}`}
+                />
+                {touched.name && formErrors.name && (
+                  <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>
+                )}
+              </div>
 
-              <input
-                name="rate"
-                placeholder="Rate"
-                onChange={handleChange}
-                className="border p-3 rounded-lg w-full md:w-1/4 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-              />
+              <div className="w-full md:w-1/4">
+                <input
+                  name="rate"
+                  placeholder="Rate"
+                  value={values.rate}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={`border p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${touched.rate && formErrors.rate ? "border-red-500" : ""}`}
+                />
+                {touched.rate && formErrors.rate && (
+                  <p className="text-red-500 text-xs mt-1">{formErrors.rate}</p>
+                )}
+              </div>
 
               {/* SAVE BUTTON INLINE */}
               <button
@@ -138,7 +182,8 @@ export default function Labours() {
                 Save
               </button>
             </form>
-          )}
+            );
+          }}
         </Formik>
       </div>
 
@@ -173,8 +218,11 @@ export default function Labours() {
                           onChange={(e) =>
                             setEditValues({ ...editValues, code: e.target.value })
                           }
-                          className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                          className={`border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 outline-none ${editErrors.code ? "border-red-500" : ""}`}
                         />
+                        {editErrors.code && (
+                          <p className="text-red-500 text-xs mt-1">{editErrors.code}</p>
+                        )}
                       </td>
 
                       <td className="p-3">
@@ -186,8 +234,11 @@ export default function Labours() {
                               name: e.target.value,
                             })
                           }
-                          className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                          className={`border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 outline-none ${editErrors.name ? "border-red-500" : ""}`}
                         />
+                        {editErrors.name && (
+                          <p className="text-red-500 text-xs mt-1">{editErrors.name}</p>
+                        )}
                       </td>
 
                       <td className="p-3">
@@ -196,8 +247,11 @@ export default function Labours() {
                           onChange={(e) =>
                             setEditValues({ ...editValues, rate: e.target.value })
                           }
-                          className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                          className={`border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 outline-none ${editErrors.rate ? "border-red-500" : ""}`}
                         />
+                        {editErrors.rate && (
+                          <p className="text-red-500 text-xs mt-1">{editErrors.rate}</p>
+                        )}
                       </td>
 
                       <td className="p-3 flex justify-center gap-4">
@@ -274,8 +328,11 @@ export default function Labours() {
                       onChange={(e) =>
                         setEditValues({ ...editValues, code: e.target.value })
                       }
-                      className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                      className={`w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none ${editErrors.code ? "border-red-500" : ""}`}
                     />
+                    {editErrors.code && (
+                      <p className="text-red-500 text-xs mt-1">{editErrors.code}</p>
+                    )}
                   </div>
 
                   <div>
@@ -288,8 +345,11 @@ export default function Labours() {
                           name: e.target.value,
                         })
                       }
-                      className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                      className={`w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none ${editErrors.name ? "border-red-500" : ""}`}
                     />
+                    {editErrors.name && (
+                      <p className="text-red-500 text-xs mt-1">{editErrors.name}</p>
+                    )}
                   </div>
 
                   <div>
@@ -299,8 +359,11 @@ export default function Labours() {
                       onChange={(e) =>
                         setEditValues({ ...editValues, rate: e.target.value })
                       }
-                      className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                      className={`w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none ${editErrors.rate ? "border-red-500" : ""}`}
                     />
+                    {editErrors.rate && (
+                      <p className="text-red-500 text-xs mt-1">{editErrors.rate}</p>
+                    )}
                   </div>
 
                   <div className="flex gap-2 pt-3 border-t">

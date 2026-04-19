@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   collection,
   addDoc,
@@ -41,6 +41,15 @@ export default function MaterialBillingPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
 
+  const [showJobPopup, setShowJobPopup] = useState(false);
+  const [jobSearch, setJobSearch] = useState("");
+  const [errors, setErrors] = useState({ job: "", amount: "", image: "" });
+  const jobRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredJobs = jobs.filter((j) =>
+    `${j.jobId} ${j.jobName}`.toLowerCase().includes(jobSearch.toLowerCase())
+  );
+
   // ---------------- FETCH JOBS ----------------
   const fetchJobs = async () => {
     const snap = await getDocs(collection(db, "jobs"));
@@ -74,6 +83,17 @@ export default function MaterialBillingPage() {
     fetchBillings();
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (jobRef.current && !jobRef.current.contains(event.target as Node)) {
+        setShowJobPopup(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // ---------------- CLOUDINARY UPLOAD ----------------
   const uploadImage = async (file: File) => {
     const formData = new FormData();
@@ -96,7 +116,14 @@ export default function MaterialBillingPage() {
 
   // ---------------- SUBMIT ----------------
   const handleSubmit = async () => {
-    if (!jobId || !materialAmount) return alert("Fill required fields");
+    const newErrors = {
+      job: !jobId || !jobName ? "Job is required" : "",
+      amount: materialAmount <= 0 ? "Amount is required" : "",
+      image: !image && !preview ? "Image is required" : "",
+    };
+
+    setErrors(newErrors);
+    if (newErrors.job || newErrors.amount || newErrors.image) return;
 
     let imageUrl = preview;
 
@@ -129,6 +156,7 @@ export default function MaterialBillingPage() {
     setImage(null);
     setPreview("");
     setEditId(null);
+    setErrors({ job: "", amount: "", image: "" });
   };
 
   // ---------------- EDIT ----------------
@@ -138,6 +166,7 @@ export default function MaterialBillingPage() {
     setMaterialAmount(b.materialAmount);
     setPreview(b.imageUrl || "");
     setEditId(b.id || null);
+    setErrors({ job: "", amount: "", image: "" });
   };
 
   // ---------------- DELETE ----------------
@@ -177,46 +206,84 @@ export default function MaterialBillingPage() {
           </h2>
         </div>
         <div className="flex flex-col md:flex-row gap-3 items-end md:items-end">
-          {/* JOB LIST (FIXED EMPTY ISSUE) */}
-          <select
-            className="border p-2 rounded w-full md:flex-1 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-            value={jobId}
-            onChange={(e) => {
-              const selected = jobs.find(j => j.jobId === e.target.value);
+          {/* JOB SEARCH */}
+          <div ref={jobRef} className="relative w-full md:flex-1">
+            <input
+              type="text"
+              placeholder="Search Job ID / Name *"
+              value={showJobPopup ? jobSearch : jobName ? `${jobId} - ${jobName}` : jobSearch}
+              onChange={(e) => {
+                setJobSearch(e.target.value);
+                setShowJobPopup(true);
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowJobPopup(true);
+              }}
+              className={`border p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${errors.job ? "border-red-500" : ""}`}
+            />
+            {errors.job && <p className="text-red-500 text-xs mt-1">{errors.job}</p>}
 
-              setJobId(e.target.value);
-              setJobName(selected?.jobName || "");
-            }}
-          >
-            <option value="">Select Job</option>
-            {jobs.map((j) => (
-              <option key={j.id} value={j.jobId}>
-                {j.jobId} - {j.jobName}
-              </option>
-            ))}
-          </select>
+            {showJobPopup && (
+              <div
+                className="absolute z-40 mt-1 w-full max-h-64 overflow-y-auto rounded border bg-white shadow-lg"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {filteredJobs.length > 0 ? (
+                  filteredJobs.map((j) => (
+                    <div
+                      key={j.id}
+                      className="cursor-pointer px-3 py-2 hover:bg-blue-100"
+                      onClick={() => {
+                        setJobId(j.jobId);
+                        setJobName(j.jobName);
+                        setJobSearch("");
+                        setErrors((prev) => ({ ...prev, job: "" }));
+                        setShowJobPopup(false);
+                      }}
+                    >
+                      {j.jobId} - {j.jobName}
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-gray-500">No results found</div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* AMOUNT */}
-          <input
-            type="number"
-            placeholder="Amount"
-            className="border p-2 rounded w-full md:w-32 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-            value={materialAmount}
-            onChange={(e) => setMaterialAmount(Number(e.target.value))}
-          />
+          <div className="w-full md:w-auto">
+            <input
+              type="number"
+              placeholder="Amount *"
+              className={`border p-2 rounded w-full md:w-32 focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${errors.amount ? "border-red-500" : ""}`}
+              value={materialAmount}
+              onChange={(e) => {
+                setMaterialAmount(Number(e.target.value));
+                setErrors((prev) => ({ ...prev, amount: "" }));
+              }}
+            />
+            {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
+          </div>
 
           {/* IMAGE */}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="border p-2 rounded w-full md:w-auto focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              setImage(file || null);
-              if (file) setPreview(URL.createObjectURL(file));
-            }}
-          />
+          <div className="w-full md:w-auto">
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              title="Upload Image *"
+              className={`border p-2 rounded w-full md:w-auto focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${errors.image ? "border-red-500" : ""}`}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                setImage(file || null);
+                if (file) setPreview(URL.createObjectURL(file));
+                setErrors((prev) => ({ ...prev, image: "" }));
+              }}
+            />
+            {errors.image && <p className="text-red-500 text-xs mt-1">{errors.image}</p>}
+          </div>
 
           {/* PREVIEW SMALL */}
           {preview && (

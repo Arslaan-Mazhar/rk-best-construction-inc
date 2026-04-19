@@ -676,14 +676,14 @@ export default function Entries() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Labour</p>
-                  <p className="text-sm font-semibold">{item.code}</p>
+                  <p className="text-sm font-semibold">{item.code} - {item.name}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <p className="text-xs text-gray-500 font-medium">Job ID</p>
-                  <p className="text-sm font-semibold">{item.jobId}</p>
+                  <p className="text-xs text-gray-500 font-medium">Job</p>
+                  <p className="text-sm font-semibold">{item.jobId} - {item.job}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Hours</p>
