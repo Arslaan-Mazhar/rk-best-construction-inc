@@ -32,6 +32,15 @@ export default function Labours() {
     rate: Yup.number().typeError("Rate is required").required("Rate is required"),
   });
 
+  const isDuplicateCode = (code: string, excludeId?: string) => {
+    const normalized = code.trim().toLowerCase();
+    return data.some(
+      (item) =>
+        item.code?.toString().trim().toLowerCase() === normalized &&
+        item.id !== excludeId
+    );
+  };
+
   const fetchData = async () => {
     setLoading(true);
     const snapshot = await getDocs(collection(db, "labours"));
@@ -64,6 +73,11 @@ export default function Labours() {
   // UPDATE
   const handleUpdate = async () => {
     if (!editingId) return;
+
+    if (isDuplicateCode(editValues.code, editingId)) {
+      setEditErrors({ code: "Labour code already exists" });
+      return;
+    }
 
     try {
       await LabourSchema.validate(editValues, { abortEarly: false });
@@ -117,7 +131,19 @@ export default function Labours() {
         <Formik
           initialValues={{ code: "", name: "", rate: "" }}
           validationSchema={LabourSchema}
-          onSubmit={async (values, { resetForm }) => {
+          validate={(values) => {
+            const errors: Record<string, string> = {};
+            if (values.code && isDuplicateCode(values.code)) {
+              errors.code = "Labour code already exists";
+            }
+            return errors;
+          }}
+          onSubmit={async (values, { resetForm, setFieldError }) => {
+            if (isDuplicateCode(values.code)) {
+              setFieldError("code", "Labour code already exists");
+              return;
+            }
+
             await addDoc(collection(db, "labours"), values);
             fetchData();
             resetForm();

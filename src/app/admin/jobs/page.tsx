@@ -33,6 +33,15 @@ export default function Jobs() {
     totalContract: Yup.number().typeError("Total Contract is required").required("Total Contract is required"),
   });
 
+  const isDuplicateJobId = (jobId: string | number, excludeId?: string) => {
+    const normalized = jobId.toString().trim().toLowerCase();
+    return jobs.some(
+      (job) =>
+        job.jobId?.toString().trim().toLowerCase() === normalized &&
+        job.id !== excludeId
+    );
+  };
+
   const fetchJobs = async () => {
     const snapshot = await getDocs(collection(db, "jobs"));
 
@@ -59,6 +68,11 @@ export default function Jobs() {
   };
 
   const handleUpdate = async (values: any) => {
+    if (isDuplicateJobId(values.jobId, values.id)) {
+      alert("Job ID already exists");
+      return;
+    }
+
     await updateDoc(doc(db, "jobs", values.id), {
       jobId: Number(values.jobId),
       jobName: values.jobName,
@@ -105,7 +119,19 @@ export default function Jobs() {
         <Formik
           initialValues={{ jobId: "", jobName: "", totalContract: "" }}
           validationSchema={JobSchema}
-          onSubmit={async (values, { resetForm }) => {
+          validate={(values) => {
+            const errors: Record<string, string> = {};
+            if (values.jobId && isDuplicateJobId(values.jobId)) {
+              errors.jobId = "Job ID already exists";
+            }
+            return errors;
+          }}
+          onSubmit={async (values, { resetForm, setFieldError }) => {
+            if (isDuplicateJobId(values.jobId)) {
+              setFieldError("jobId", "Job ID already exists");
+              return;
+            }
+
             await addDoc(collection(db, "jobs"), {
               jobId: Number(values.jobId),
               jobName: values.jobName,
@@ -293,6 +319,13 @@ export default function Jobs() {
               initialValues={editData}
               enableReinitialize
               validationSchema={JobSchema}
+              validate={(values) => {
+                const errors: Record<string, string> = {};
+                if (values.jobId && isDuplicateJobId(values.jobId, values.id)) {
+                  errors.jobId = "Job ID already exists";
+                }
+                return errors;
+              }}
               onSubmit={handleUpdate}
             >
               {({ values, handleChange, handleBlur, handleSubmit, errors, touched }) => {
