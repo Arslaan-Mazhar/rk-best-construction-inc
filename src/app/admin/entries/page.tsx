@@ -22,6 +22,33 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+/* ================= HELPER FUNCTIONS ================= */
+const formatDate = (date: any): string => {
+  if (!date) return "";
+
+  let dateObj: Date;
+
+  // If it's a Firestore Timestamp
+  if (date.toDate) {
+    dateObj = date.toDate();
+  } else {
+    // If it's a string or can be parsed as Date
+    try {
+      dateObj = new Date(date);
+    } catch {
+      return "";
+    }
+  }
+
+  // Format with day name
+  return dateObj.toLocaleDateString('en-US', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
 /* ================= VALIDATION ================= */
 const AddSchema = Yup.object().shape({
   labourCode: Yup.string().required("Labour is required"),
@@ -39,15 +66,34 @@ const EditSchema = Yup.object().shape({
   paid: Yup.number().min(0),
 });
 
+
+// const uploadJsonFile = async (file: File) => {
+//   const text = await file.text();
+//   const json = JSON.parse(text);
+
+//   await Promise.all(
+//     json.map((item: any) =>
+//       addDoc(collection(db, "workEntries"), item)
+//     )
+//   );
+
+//   alert("Uploaded successfully");
+// };
+
 /* ================= PAGE ================= */
 export default function Entries() {
   const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     labourCode: "",
     jobName: "",
     startDate: "",
     endDate: "",
   });
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20; // items per page
 
 
   /* EDIT MODAL */
@@ -67,6 +113,9 @@ export default function Entries() {
   const [labourSearch, setLabourSearch] = useState("");
   const [jobSearch, setJobSearch] = useState("");
 
+  const [labourRemaining, setLabourRemaining] = useState(0);
+  const [jobExpense, setJobExpense] = useState(0);
+
   const labourRef = useRef<HTMLDivElement>(null);
   const jobRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +132,65 @@ export default function Entries() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!selectedLabour && !selectedJob) return;
+
+    // LABOUR REMAINING
+    if (selectedLabour) {
+      const labourEntries = data.filter(
+        (i) => i.labourCode === selectedLabour.code
+      );
+
+      const totalAmount = labourEntries.reduce(
+        (sum, i) => sum + Number(i.amount || 0),
+        0
+      );
+
+      const totalPaid = labourEntries.reduce(
+        (sum, i) => sum + Number(i.paid || 0),
+        0
+      );
+
+      setLabourRemaining(totalAmount - totalPaid);
+    }
+
+    // JOB EXPENSE
+    if (selectedJob) {
+      const jobEntries = data.filter(
+        (i) => i.jobId === selectedJob.jobId
+      );
+
+      const totalAmount = jobEntries.reduce(
+        (sum, i) => sum + Number(i.amount || 0),
+        0
+      );
+
+      const totalPaid = jobEntries.reduce(
+        (sum, i) => sum + Number(i.paid || 0),
+        0
+      );
+
+      // MATERIAL BILL (assuming collection name = "materialBills")
+      const fetchMaterial = async () => {
+        const snap = await getDocs(collection(db, "materialBilling"));
+
+        const materials = snap.docs
+          .map((d) => d.data())
+          .filter((m) => m.jobId === selectedJob.jobId);
+
+        const materialTotal = materials.reduce(
+          (sum, m) => sum + Number(m.materialAmount || 0),
+          0
+        );
+
+        setJobExpense((totalAmount - totalPaid) + materialTotal);
+      };
+
+      fetchMaterial();
+    }
+
+  }, [selectedLabour, selectedJob, data]);
 
   const filteredLabours = labours.filter((l) =>
     `${l.code} ${l.name} ${l.rate}`
@@ -138,12 +246,14 @@ export default function Entries() {
 
   /* ================= FETCH ================= */
   const fetchData = async () => {
+    setLoading(true);
     const snapshot = await getDocs(collection(db, "workEntries"));
     const list = snapshot.docs.map((d) => ({
       id: d.id,
       ...d.data(),
     }));
     setData(list);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -187,6 +297,19 @@ export default function Entries() {
 
     return temp;
   }, [data, filters]);
+
+  // Pagination logic
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredData.slice(startIndex, startIndex + pageSize);
+  }, [filteredData, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredData.length / pageSize);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
 
   const groupedTotals = useMemo(() => {
     const groups: Record<
@@ -403,7 +526,14 @@ export default function Entries() {
         >
           {({ values, setFieldValue, handleChange, handleSubmit, errors, touched }) => (
             <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row flex-wrap gap-2 lg:items-center">
-
+              {/* <input
+                type="file"
+                accept=".json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadJsonFile(file);
+                }}
+              /> */}
               {/* LABOUR DROPDOWN */}
               <div ref={labourRef} className="relative inline-block w-full lg:w-auto">
                 <input
@@ -423,7 +553,7 @@ export default function Entries() {
                     e.stopPropagation();
                     setShowLabourPopup(true);
                   }}
-                  className={`border p-2 rounded w-full lg:min-w-78 bg-white ${touched.labourCode && errors.labourCode ? "border-red-500" : ""
+                  className={`border p-2 rounded w-full lg:min-w-72 bg-white ${touched.labourCode && errors.labourCode ? "border-red-500" : ""
                     }`}
                 />
                 {touched.labourCode && errors.labourCode && (
@@ -445,7 +575,7 @@ export default function Entries() {
                             setFieldValue("name", l.name);
                             setFieldValue("labourCode", l.code);
                             setFieldValue("price", l.rate || 0);
-
+                            setSelectedLabour(l);   // ✅ ADD THIS
                             setLabourSearch(""); // reset search
                             setShowLabourPopup(false);
                           }}
@@ -459,6 +589,13 @@ export default function Entries() {
                   </div>
                 )}
               </div>
+
+              <input
+                value={labourRemaining}
+                readOnly
+                placeholder="Labour Remaining"
+                className="border p-2 rounded w-full lg:w-20 bg-gray-100 text-blue-700 font-semibold"
+              />
 
               {/* JOB DROPDOWN */}
               <div ref={jobRef} className="relative inline-block w-full lg:w-auto">
@@ -500,7 +637,7 @@ export default function Entries() {
                           onClick={() => {
                             setFieldValue("jobName", j.jobName);
                             setFieldValue("jobCode", j.jobId);
-
+                            setSelectedJob(j);   // ✅ ADD THIS
                             setJobSearch(""); // reset search
                             setShowJobPopup(false);
                           }}
@@ -514,6 +651,12 @@ export default function Entries() {
                   </div>
                 )}
               </div>
+              <input
+                value={jobExpense}
+                readOnly
+                placeholder="Job Expense"
+                className="border p-2 rounded w-full lg:w-20   bg-gray-100 text-red-700 font-semibold"
+              />
 
               {/* ROW 1: Hours and Price */}
               <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
@@ -644,12 +787,21 @@ export default function Entries() {
           <span>Actions</span>
         </div>
 
-        {filteredData.map((item) => (
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">
+            <p>Loading entries...</p>
+          </div>
+        ) : paginatedData.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <p>No entries found</p>
+          </div>
+        ) : (
+          paginatedData.map((item) => (
           <div
             key={item.id}
             className="grid grid-cols-10 p-3 border-t items-center text-sm"
           >
-            <span>{item.date?.toDate?.().toLocaleDateString()}</span>
+            <span>{formatDate(item.date)}</span>
             <span>{item.labourCode} - {labours.find(l => l.code === item.labourCode)?.name || ""}</span>
             <span>{item.jobId} - {jobs.find(j => j.jobId === item.jobId)?.jobName || ""}</span>
             <span>{item.hours}</span>
@@ -670,17 +822,21 @@ export default function Entries() {
               </button>
             </div>
           </div>
-        ))}
+        )))}
       </div>
 
       {/* MOBILE CARD VIEW */}
       <div className="md:hidden space-y-3">
-        {filteredData.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+            <p>Loading entries...</p>
+          </div>
+        ) : paginatedData.length === 0 ? (
           <div className="bg-white rounded-lg p-8 text-center text-gray-500">
             <p>No entries found</p>
           </div>
         ) : (
-          filteredData.map((item) => (
+          paginatedData.map((item) => (
             <div
               key={item.id}
               className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500"
@@ -688,7 +844,7 @@ export default function Entries() {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Date</p>
-                  <p className="text-sm font-semibold">{item.date?.toDate?.().toLocaleDateString()}</p>
+                  <p className="text-sm font-semibold">{formatDate(item.date)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Labour</p>
@@ -752,6 +908,29 @@ export default function Entries() {
         )}
       </div>
 
+      {/* PAGINATION CONTROLS */}
+      {totalPages > 1 && (
+        <div className="bg-white p-4 rounded shadow mt-4 flex justify-between items-center">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {currentPage} of {totalPages} ({filteredData.length} total entries)
+          </span>
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      )}
+
       {/* ================= EDIT MODAL ================= */}
       {editOpen && editData && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -794,8 +973,8 @@ export default function Entries() {
                         }
                       }}
                       className={`w-full border ${touched.code && errors.code
-                          ? "border-red-500"
-                          : "border-gray-300"
+                        ? "border-red-500"
+                        : "border-gray-300"
                         } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
                     >
                       <option value="">Select Labour</option>
@@ -818,8 +997,8 @@ export default function Entries() {
                       value={values.job}
                       onChange={handleChange}
                       className={`w-full border ${touched.job && errors.job
-                          ? "border-red-500"
-                          : "border-gray-300"
+                        ? "border-red-500"
+                        : "border-gray-300"
                         } rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors`}
                     >
                       <option value="">Select Job</option>
@@ -919,6 +1098,3 @@ export default function Entries() {
     </div>
   );
 }
-
-
-

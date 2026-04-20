@@ -95,23 +95,33 @@ export default function MaterialBillingPage() {
   }, []);
 
   // ---------------- CLOUDINARY UPLOAD ----------------
-  const uploadImage = async (file: File) => {
+  const uploadImage = async (file: File): Promise<string | null> => {
     const formData = new FormData();
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     formData.append("file", file);
     formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_PRESET!);
     // formData.append("cloud_name", cloudName);
 
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
-    const data = await res.json();
-    return data.secure_url;
+      if (!res.ok) {
+        console.error("Cloudinary upload failed:", res.status, res.statusText);
+        return null;
+      }
+
+      const data = await res.json();
+      return data.secure_url || null;
+    } catch (error) {
+      console.error("Error uploading image to Cloudinary:", error);
+      return null;
+    }
   };
 
   // ---------------- SUBMIT ----------------
@@ -125,18 +135,34 @@ export default function MaterialBillingPage() {
     setErrors(newErrors);
     if (newErrors.job || newErrors.amount || newErrors.image) return;
 
-    let imageUrl = preview;
+    let imageUrl: string | null = preview || null;
 
     if (image) {
-      imageUrl = await uploadImage(image);
+      const uploadedUrl = await uploadImage(image);
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl;
+      } else {
+        // If upload fails but we have a preview, keep the preview
+        // Otherwise, show error
+        if (!preview) {
+          setErrors((prev) => ({ ...prev, image: "Failed to upload image" }));
+          return;
+        }
+        imageUrl = preview;
+      }
     }
 
-    const data: Billing = {
+    // Create data object, excluding undefined values
+    const data: Record<string, any> = {
       jobId,
       jobName,
       materialAmount,
-      imageUrl,
     };
+
+    // Only add imageUrl if it has a value
+    if (imageUrl) {
+      data.imageUrl = imageUrl;
+    }
 
     if (editId) {
       await updateDoc(doc(db, "materialBilling", editId), data);
